@@ -1,0 +1,17 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Data & Document output (keep directory structure)
+data/documents/*
+data/raw/*
+!data/documents/.gitkeep
+!data/raw/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
