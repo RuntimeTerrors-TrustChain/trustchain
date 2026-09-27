@@ -3,8 +3,8 @@ TrustChain Global Configuration & Scoring Thresholds
 """
 from pathlib import Path
 
-# --- File Paths ---
-BASE_DIR = Path(__file__).resolve().parent
+# File Paths
+BASE_DIR = Path(__file__).resolve().parent # parent location of config.py
 DATA_DIR = BASE_DIR / "data"
 RAW_DATA_DIR = DATA_DIR / "raw"
 DOCS_DIR = DATA_DIR / "documents"

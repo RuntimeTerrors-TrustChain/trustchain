@@ -1,0 +1,65 @@
+{
+  "shell_clusters": [
+    {
+      "cluster_id": "CLUSTER-01",
+      "shared_director": "Bhavin Ganguly",
+      "shared_address": "H.No. 387, Borde Circle, Madurai 270790",
+      "members": [
+        "VEND-SHELL-CLUSTER-01-1",
+        "VEND-SHELL-CLUSTER-01-2",
+        "VEND-SHELL-CLUSTER-01-3",
+        "VEND-SHELL-CLUSTER-01-4"
+      ]
+    },
+    {
+      "cluster_id": "CLUSTER-02",
+      "shared_director": "Faiyaz Sunder",
+      "shared_address": "22, Bala Nagar, Anantapuram-645970",
+      "members": [
+        "VEND-SHELL-CLUSTER-02-1",
+        "VEND-SHELL-CLUSTER-02-2",
+        "VEND-SHELL-CLUSTER-02-3",
+        "VEND-SHELL-CLUSTER-02-4"
+      ]
+    },
+    {
+      "cluster_id": "CLUSTER-03",
+      "shared_director": "Aarna Lanka",
+      "shared_address": "17/731, Shetty Circle, Vellore-254310",
+      "members": [
+        "VEND-SHELL-CLUSTER-03-1",
+        "VEND-SHELL-CLUSTER-03-2",
+        "VEND-SHELL-CLUSTER-03-3",
+        "VEND-SHELL-CLUSTER-03-4"
+      ]
+    }
+  ],
+  "circular_chains": [
+    {
+      "cycle_path": [
+        "VEND-SHELL-CLUSTER-01-1",
+        "VEND-SHELL-CLUSTER-01-2",
+        "VEND-SHELL-CLUSTER-01-3",
+        "VEND-SHELL-CLUSTER-01-1"
+      ],
+      "cycle_amount": 350000.0
+    },
+    {
+      "cycle_path": [
+        "VEND-SHELL-CLUSTER-02-1",
+        "VEND-SHELL-CLUSTER-02-2",
+        "VEND-SHELL-CLUSTER-02-3",
+        "VEND-SHELL-CLUSTER-02-1"
+      ],
+      "cycle_amount": 180000.0
+    }
+  ],
+  "structuring_cases": [
+    {
+      "sender": "VEND-SHELL-CLUSTER-03-1",
+      "receiver": "VEND-SHELL-CLUSTER-03-2",
+      "count": 4,
+      "threshold": 50000.0
+    }
+  ]
+}
