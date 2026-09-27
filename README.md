@@ -1,7 +1,6 @@
 
 ---
 
-```markdown
 # 🛡️ TrustChain — Procurement & Vendor Fraud Verification System
 
 > **Document forensics + entity-network intelligence, fused into one explainable risk score.**
@@ -17,6 +16,7 @@
 ## 📌 Executive Summary
 
 Procurement and vendor fraud (government tenders, corporate onboarding, grant disbursements) typically operates on two simultaneous layers that existing tools fail to cross-reference:
+
 1. **Document-Level Fraud:** Forged invoices, tampered billing amounts, pasted signatures, and manipulated PDF creation metadata.
 2. **Network-Level Fraud (Collusion & Shell Rings):** Multiple "independent" bidding companies that secretly share directors, registered office addresses, phone numbers, or bank accounts to rig competitive tender prices and launder funds through circular invoicing.
 
@@ -26,7 +26,7 @@ Procurement and vendor fraud (government tenders, corporate onboarding, grant di
 
 ## 🏛️ System Architecture
 
-```
+```text
                                   TRUSTCHAIN CORE ARCHITECTURE
                                   
  📄 Submitted Invoice (PDF/Image)                     🏢 Company Registry & Transaction Ledger
@@ -72,24 +72,24 @@ Procurement and vendor fraud (government tenders, corporate onboarding, grant di
 ## 🚀 Key Features
 
 ### 🔍 Layer A — Document Forensics Engine
-* **Error Level Analysis (ELA):** Exploits JPEG Discrete Cosine Transform (DCT) quantization differences. When a fraudster splices a modified number into an invoice, the compression error gradient breaks.
-* **OpenCV Automated Bounding Boxes:** Converts amplified difference maps to grayscale, calculates the 85th percentile noise cutoff, and uses `cv2.findContours` to draw red bounding boxes around tampered zones.
+* **Error Level Analysis (ELA):** Exploits JPEG Discrete Cosine Transform (DCT) quantization differences. When an altered number is spliced into an invoice, the compression error gradient breaks.
+* **OpenCV Automated Bounding Boxes:** Converts amplified difference maps to grayscale, applies an 85th percentile noise cutoff, and uses `cv2.findContours` to draw red bounding boxes around tampered zones.
 * **PDF Stream & Metadata Auditing:** Extracts `/Producer`, `/Creator`, `/CreationDate`, and `/ModDate` via `pypdf` to flag Photoshop/Canva usage and post-creation edits.
-* **Benford's Law First-Digit Analysis:** Measures Chi-Square ($\chi^2$) deviation against the natural logarithmic curve $P(d) = \log_{10}(1 + 1/d)$ across a vendor's historical invoices to catch fabricated amounts.
+* **Benford's Law First-Digit Analysis:** Measures Chi-Square (χ²) deviation against the natural logarithmic curve $P(d) = \log_{10}(1 + 1/d)$ across a vendor's historical invoices to catch fabricated amounts.
 
 ### 🕸️ Layer B — Entity Relationship Graph Engine
-* **Fuzzy Identity Resolution:** Combines inverted index lookup tables with `RapidFuzz` token sorting ($>90\%$ similarity threshold) to connect entities across misspelled names and addresses.
-* **Louvain Community Detection:** Greedily optimizes graph modularity ($Q$) to isolate dense sub-networks ($D \ge 0.5$, size $\le 8$) representing shell company rings.
+* **Fuzzy Identity Resolution:** Combines inverted index lookup tables with `RapidFuzz` token sorting (>90% similarity threshold) to connect entities across misspelled names and addresses.
+* **Louvain Community Detection:** Greedily optimizes graph modularity ($Q$) to isolate dense sub-networks (Density $\ge 0.5$, Size $\le 8$) representing shell company rings.
 * **Directed Circular Invoicing Detection:** Runs Johnson’s elementary cycle algorithm on directed financial graphs to expose 3-hop and 4-hop fund round-tripping ($A \to B \to C \to A$).
-* **AML Structuring Detection:** Uses rolling 7-day Pandas time-window aggregations to flag vendors issuing $\ge 3$ transactions inside the $[₹49,000, ₹49,999]$ regulatory avoidance band.
+* **AML Structuring Detection:** Uses rolling 7-day Pandas time-window aggregations to flag vendors issuing $\ge 3$ transactions inside the ₹49,000–₹49,999 regulatory avoidance band.
 
 ### ⚡ Layer C — Multi-Signal Risk Fusion Engine
 * **Transparent Rule Escalation:** Avoids unexplainable machine learning black boxes.
 * **Compounding Risk Escalations:** Adds $+20$ points when document tampering coincides with shell cluster membership, and $+15$ points when circular fund loops coincide with forensic anomalies.
 * **3-Tier Actionable Risk Bands:**
-  * **$0.0 - 39.9 \implies$ LOW RISK (Green):** Automated tender clearance.
-  * **$40.0 - 69.9 \implies$ MEDIUM RISK (Yellow):** Secondary human auditor review.
-  * **$70.0 - 100.0 \implies$ HIGH RISK (Red):** Immediate disbursement hold & mandatory investigation.
+  * **0.0 – 39.9 → LOW RISK (Green):** Automated tender clearance.
+  * **40.0 – 69.9 → MEDIUM RISK (Yellow):** Secondary human auditor review.
+  * **70.0 – 100.0 → HIGH RISK (Red):** Immediate disbursement hold & mandatory investigation.
 
 ---
 
@@ -228,18 +228,9 @@ python eval_benchmark.py
 | `/risk-score/{id}` | `GET` | Returns the complete fused risk score and reason dossier |
 | `/graph` | `GET` | Returns nodes and edges formatted for `vis-network` |
 
----
-
-## 🎯 4-Minute Presentation Sequence
-
-1. **Clean Vendor Demo (`0:30`):** Click a green node (`Shanker LLC`). Point out that independent companies with natural Benford curves score **0.0 (LOW RISK)**.
-2. **Document Forensics Demo (`1:15`):** Click **"🔬 Inspect Document ELA Heatmap"**. Show the original invoice alongside the OpenCV thermal diff highlighting the spliced ₹98.5L amount in a red box.
-3. **Graph & Multi-Signal Climax (`2:15`):** Click `VEND-SHELL-CLUSTER-01-1`. Show the physics graph isolating the 4-company shell ring (density 1.0) and the 3-hop ₹10.39L circular invoice loop. Show the final score hitting **100.0 (HIGH RISK)** with full plain-English audit reasoning.
-4. **Hard Numbers (`3:15`):** Present the 100% recall and 0% false-positive confusion matrix from `eval_benchmark.py`.
-
----
 
 ## 📄 License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
-```
+
+---
