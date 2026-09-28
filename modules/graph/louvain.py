@@ -6,23 +6,23 @@ from config import GLOBAL_SEED, SHELL_CLUSTER_MAX_SIZE, SHELL_CLUSTER_MIN_DENSIT
 def detect_shell_clusters(G: nx.Graph) -> List[Dict]:
     """
     Partitions the graph using Louvain community detection and flags
-    small, high-density clusters characteristic of shell rings.
+    small, high-density clusters characteristic of shell rings (minimum 3 members).
     """
     if len(G.nodes) == 0 or len(G.edges) == 0:
         return []
 
-    # Deterministic community detection using seed
     communities = nx_comm.louvain_communities(G, seed=GLOBAL_SEED)
     suspicious_clusters = []
 
     for idx, community in enumerate(communities):
-        if len(community) < 2:
+        # Ignore isolated nodes and 2-member incidental pairs
+        if len(community) < 3:
             continue
 
         subgraph = G.subgraph(community)
         density = nx.density(subgraph)
 
-        # Flag small, dense groups (3 to 8 entities with density > 0.5)
+        # Flag 3 to 8 entity groups with high internal connection density
         if len(community) <= SHELL_CLUSTER_MAX_SIZE and density >= SHELL_CLUSTER_MIN_DENSITY:
             shared_links = []
             for u, v, d in subgraph.edges(data=True):

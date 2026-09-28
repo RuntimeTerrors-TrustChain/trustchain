@@ -5,7 +5,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 import io
 import random
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -69,7 +69,6 @@ def generate_tampered_pdf_metadata(doc_id: str, entity_id: str, vendor_name: str
     for page in reader.pages:
         writer.add_page(page)
         
-    # Inject suspicious metadata stream
     writer.add_metadata({
         "/Producer": "Adobe Photoshop 25.2 (Windows)",
         "/Creator": "Adobe Photoshop 2026",
@@ -91,7 +90,7 @@ def generate_tampered_invoice_image(
     patch_text: str = "₹ 9,850,000.00", 
     tamper_pos: tuple = (560, 210)
 ) -> str:
-    """Creates a JPEG invoice with a spliced patch to test Error Level Analysis (ELA)."""
+    """Creates a JPEG invoice with a spliced low-quality patch."""
     filename = f"{doc_id}_{entity_id}_tampered.jpg"
     img_path = DOCS_DIR / filename
     
@@ -110,25 +109,23 @@ def generate_tampered_invoice_image(
     draw.rectangle([(40, 350), (250, 420)], outline=(180, 180, 180), width=1)
     draw.text((60, 375), "[ Verified Official Stamp ]", fill=(100, 100, 100))
     
-    img.save(img_path, "JPEG", quality=95)
-    
-    # Tampering: Splice a low-quality patch
-    tampered = Image.open(img_path).convert("RGB")
+    # Degrade the patch heavily (quality 20)
     patch = Image.new("RGB", (220, 45), "white")
     p_draw = ImageDraw.Draw(patch)
     p_draw.text((10, 10), patch_text, fill=(180, 0, 0))
     
     buf = io.BytesIO()
-    patch.save(buf, "JPEG", quality=60)
+    patch.save(buf, "JPEG", quality=20)
     buf.seek(0)
     patch_degraded = Image.open(buf)
     
-    tampered.paste(patch_degraded, tamper_pos)
-    tampered.save(img_path, "JPEG", quality=90)
+    img.paste(patch_degraded, tamper_pos)
+    # Save the composite at 98 quality so ELA recompression at 90 exposes the patch
+    img.save(img_path, "JPEG", quality=98)
     return filename
 
 def generate_clean_invoice_image(doc_id: str, entity_id: str) -> str:
-    """Generates an authentic, non-tampered JPEG invoice for clean controls."""
+    """Generates an authentic, non-tampered JPEG invoice."""
     filename = f"{doc_id}_{entity_id}_clean.jpg"
     img_path = DOCS_DIR / filename
     
@@ -142,5 +139,5 @@ def generate_clean_invoice_image(doc_id: str, entity_id: str) -> str:
     draw.text((40, 220), "Procurement Supply: Certified Hardware Units", fill=(0, 0, 0))
     draw.text((600, 220), "₹ 150,000.00", fill=(0, 0, 0))
     
-    img.save(img_path, "JPEG", quality=90)
+    img.save(img_path, "JPEG", quality=98)
     return filename

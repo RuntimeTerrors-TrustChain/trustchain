@@ -23,7 +23,7 @@ class DocumentForensicsEngine:
             heatmap_image = f"/docs-media/{heatmap_file}"
             if hotspots:
                 highest_intensity = max(h["intensity"] for h in hotspots)
-                authenticity_score += 45.0 + (highest_intensity * 20.0)
+                authenticity_score += 50.0 + (highest_intensity * 20.0)
                 reasons.append(
                     f"Error Level Analysis (ELA) detected {len(hotspots)} tampered hotspot(s) (intensity: {highest_intensity})"
                 )

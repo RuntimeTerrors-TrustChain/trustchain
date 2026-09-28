@@ -22,23 +22,22 @@ def compute_combined_risk_score(doc_result: Dict[str, Any], graph_result: Dict[s
     if has_document:
         base_score = (WEIGHT_DOCUMENT * doc_score) + (WEIGHT_GRAPH * graph_score)
     else:
-        # If no document was submitted, graph is the primary signal
         base_score = graph_score
 
     escalation = 0.0
     escalation_reasons: List[str] = []
 
     has_tamper = doc_score >= 40.0 or len(doc_result.get("ela_hotspots", [])) > 0 or len(doc_result.get("metadata_flags", [])) > 0
-    in_shell_cluster = (graph_result.get("cluster_size", 1) > 1) and (graph_result.get("cluster_density", 0.0) >= 0.5)
+    in_shell_cluster = (graph_result.get("cluster_size", 1) >= 3) and (graph_result.get("cluster_density", 0.0) >= 0.5)
 
-    # Standalone Tampered Document Rule (guarantees tampered doc alone reaches at least MEDIUM)
+    # Standalone Tampered Document Rule (tampered doc alone -> MEDIUM)
     if has_tamper and not in_shell_cluster:
         escalation += 20.0
         escalation_reasons.append(
             "⚠️ DOCUMENT RISK: Physical document forensic anomalies detected on vendor submission."
         )
 
-    # Standalone Shell Cluster Rule (guarantees shell members reach at least MEDIUM even without docs)
+    # Standalone Shell Cluster Rule (shell members reach at least MEDIUM even without docs)
     if in_shell_cluster and not has_tamper:
         if base_score < SCORE_BAND_MEDIUM:
             escalation += ESCALATION_CLUSTER_STANDALONE
