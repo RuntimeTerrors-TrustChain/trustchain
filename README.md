@@ -5,22 +5,23 @@
 
 > **Document forensics + entity-network intelligence, fused into one explainable risk score.**
 
-[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![OpenCV](https://img.shields.io/badge/OpenCV-Headless-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white)](https://opencv.org/)
 [![NetworkX](https://img.shields.io/badge/NetworkX-3.2.1-blue?style=for-the-badge)](https://networkx.org/)
+[![Pytest](https://img.shields.io/badge/Pytest-Passing-brightgreen?style=for-the-badge&logo=pytest&logoColor=white)](https://docs.pytest.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
 ---
 
 ## 📌 Executive Summary
 
-Procurement and vendor fraud (government tenders, corporate onboarding, grant disbursements) typically operates on two simultaneous layers that existing tools fail to cross-reference:
+Procurement and vendor fraud (government tenders, corporate vendor onboarding, subsidy disbursements) operates on two simultaneous layers that existing anti-fraud tools fail to cross-reference:
 
-1. **Document-Level Fraud:** Forged invoices, tampered billing amounts, pasted signatures, and manipulated PDF creation metadata.
-2. **Network-Level Fraud (Collusion & Shell Rings):** Multiple "independent" bidding companies that secretly share directors, registered office addresses, phone numbers, or bank accounts to rig competitive tender prices and launder funds through circular invoicing.
+1. **Document-Level Fraud:** Forged tax certificates, tampered invoice amounts, copy-pasted signatures, and manipulated PDF byte streams.
+2. **Network-Level Fraud (Collusion & Shell Rings):** Multiple "independent" bidding companies that secretly share directors, registered addresses, phone numbers, or bank accounts to fake competitive bidding, rig tender prices, or launder funds through circular invoicing.
 
-**TrustChain** solves this by fusing **physical document forensics** with **graph-theoretic network intelligence** using a transparent, rule-escalation model. Every fraud flag is 100% explainable and defensible in an audit room or court of law.
+**TrustChain** solves this by fusing **physical document forensics** with **graph-theoretic network intelligence** using a transparent, rule-escalation model. Every fraud flag is 100% auditable and explainable to procurement officers, forensic investigators, and auditors.
 
 ---
 
@@ -49,7 +50,8 @@ Procurement and vendor fraud (government tenders, corporate onboarding, grant di
                                  │           LAYER C           │
                                  │     Risk Fusion Engine      │
                                  ├─────────────────────────────┤
-                                 │ • 50/50 Baseline Weighting  │
+                                 │ • Base Weighted Integration │
+                                 │ • +25 Pt Shell Ring Rule    │
                                  │ • +20 Pt Shell+Tamper Bonus │
                                  │ • +15 Pt Cycle+Anomaly Bonus│
                                  │ • Plain-English Reason Tree │
@@ -69,10 +71,24 @@ Procurement and vendor fraud (government tenders, corporate onboarding, grant di
 
 ---
 
+## 🎬 5 Live Demo Scenarios
+
+Our synthetic pipeline deterministically generates entities and mapped documents covering five concrete audit scenarios:
+
+| Scenario | Scenario Name | Physical & Network Evidence | Expected Risk Score |
+| :---: | :--- | :--- | :---: |
+| **A** | **Clean Control** | Clean PDF invoice, unique director/address, natural Benford curve | **LOW RISK (0.0)** |
+| **B** | **Tampered Doc Alone** | Spliced ₹74.2L amount with ELA hotspot, independent entity | **MEDIUM RISK (45.0 - 55.0)** |
+| **C** | **Shell Member Alone** | 4-Node Shell Cartel (Density 1.0, shared director & address), no tampered doc | **MEDIUM RISK (50.0 - 62.5)** |
+| **D** | **Multi-Signal Climax** | Dense shell cartel + Spliced JPEG invoice (intensity 0.8) | **HIGH RISK (80.0 - 100.0)** |
+| **E** | **Circular AML Flow** | 3-Hop circular invoicing + Photoshop PDF metadata discrepancy | **HIGH RISK (75.0 - 90.0)** |
+
+---
+
 ## 🚀 Key Features
 
 ### 🔍 Layer A — Document Forensics Engine
-* **Error Level Analysis (ELA):** Exploits JPEG Discrete Cosine Transform (DCT) quantization differences. When an altered number is spliced into an invoice, the compression error gradient breaks.
+* **Error Level Analysis (ELA):** Exploits JPEG Discrete Cosine Transform (DCT) quantization differences. Spliced amounts or altered dates compress with a different error rate than the untouched background.
 * **OpenCV Automated Bounding Boxes:** Converts amplified difference maps to grayscale, applies an 85th percentile noise cutoff, and uses `cv2.findContours` to draw red bounding boxes around tampered zones.
 * **PDF Stream & Metadata Auditing:** Extracts `/Producer`, `/Creator`, `/CreationDate`, and `/ModDate` via `pypdf` to flag Photoshop/Canva usage and post-creation edits.
 * **Benford's Law First-Digit Analysis:** Measures Chi-Square (χ²) deviation against the natural logarithmic curve $P(d) = \log_{10}(1 + 1/d)$ across a vendor's historical invoices to catch fabricated amounts.
@@ -84,7 +100,7 @@ Procurement and vendor fraud (government tenders, corporate onboarding, grant di
 * **AML Structuring Detection:** Uses rolling 7-day Pandas time-window aggregations to flag vendors issuing $\ge 3$ transactions inside the ₹49,000–₹49,999 regulatory avoidance band.
 
 ### ⚡ Layer C — Multi-Signal Risk Fusion Engine
-* **Transparent Rule Escalation:** Avoids unexplainable machine learning black boxes.
+* **Transparent Rule Escalation:** Avoids unexplainable machine learning black boxes. Every risk score is completely traceable to stated rules.
 * **Compounding Risk Escalations:** Adds $+20$ points when document tampering coincides with shell cluster membership, and $+15$ points when circular fund loops coincide with forensic anomalies.
 * **3-Tier Actionable Risk Bands:**
   * **0.0 – 39.9 → LOW RISK (Green):** Automated tender clearance.
@@ -95,31 +111,48 @@ Procurement and vendor fraud (government tenders, corporate onboarding, grant di
 
 ## 📊 Benchmark & Accuracy Results
 
-Evaluated against a blind ground-truth dataset generated by our localized Indian commerce generator (`data/ground_truth.json`):
+Evaluated on our synthetic commercial dataset with hidden ground truth (`data/ground_truth.json`):
 
 ```text
 =================================================================
-📊 TRUSTCHAIN BENCHMARK EVALUATION RESULTS
+📊 TRUSTCHAIN MULTI-LAYER BENCHMARK EVALUATION RESULTS
 =================================================================
-Total Registry Entities             : 132
-Planted Fraud Entities (Shell Rings): 12
-Legitimate Clean Entities           : 120
------------------------------------------------------------------
-True Positives  (Fraud Caught)      : 12 / 12
-False Positives (False Alarms)      : 0 / 120
-True Negatives  (Clean Cleared)     : 120 / 120
-False Negatives (Fraud Missed)      : 0 / 12
------------------------------------------------------------------
-🎯 OVERALL ACCURACY                 : 100.00%
-🔍 RECALL (Fraud Coverage)          : 100.00%
-⚖️  PRECISION (Alert Reliability)    : 100.00%
-🏆 F1-SCORE                         : 100.00%
+1. GRAPH-ONLY ENGINE:
+   TP: 12 | FP: 0 | TN: 116 | FN: 1
+   Recall: 92.3% | Precision: 100.0% | F1-Score: 96.0%
+
+2. DOCUMENT-ONLY FORENSICS:
+   TP: 3  | FP: 0 | TN: 116 | FN: 10
+   Recall: 23.1% | Precision: 100.0% | F1-Score: 37.5%
+
+3. COMBINED RISK FUSION (LAYER C):
+   TP: 13 | FP: 0 | TN: 116 | FN: 0
+   🎯 Accuracy : 100.00%
+   🔍 Recall   : 100.00% (Catches both document & syndicate fraud)
+   ⚖️  Precision: 100.00%
+   🏆 F1-Score : 100.00%
+
+4. HELD-OUT TEST CASES (Unseen Seed Evaluation):
+   Generalization Recall: 100.0% (4 / 4 unseen shell entities detected)
 =================================================================
 ```
+*(Note: Evaluated on deterministically generated synthetic procurement data with planted ground truth. Combined multi-signal fusion outperforms either single layer in isolation).*
 
 ---
 
-## 🛠️ Tech Stack
+## ⚠️ Known Limitations & Domain Assumptions
+
+* **Synthetic Data Environment:** Real procurement ledgers and bank records are legally confidential. Real-world deployment requires integration with corporate registry APIs (such as India's MCA21) and core banking transaction streams.
+* **Rescanned / Printed Documents:** Error Level Analysis operates on digital JPEG compression gradients. If a forged document is physically printed and scanned on a flatbed scanner, ELA signals degrade; TrustChain mitigates this by pairing ELA with metadata inspection and Benford's Law.
+* **Benford's Law Sample Size:** Reliable first-digit frequency analysis requires $\ge 30–50$ line-item transactions per vendor.
+* **Illustrative Thresholds:** Regulatory limits (e.g. ₹50,000 PMLA threshold) are configurable constants in `config.py`.
+
+---
+
+## 🛠️ Tech Stack & Requirements
+
+* **Supported Python Versions:** Python 3.10, 3.11, 3.12 (NumPy 1.26 and OpenCV 4.9.0 require Python $\le 3.12$).
+* **Core Libraries:** FastAPI, Uvicorn, Pydantic, NetworkX, Pillow, OpenCV-Headless, RapidFuzz, Pandas, NumPy, ReportLab, Faker, Pytest.
 
 | Layer | Technology | Purpose |
 | :--- | :--- | :--- |
@@ -129,6 +162,7 @@ False Negatives (Fraud Missed)      : 0 / 12
 | **Data Science & AML** | NumPy, Pandas | Log-normal pricing math, 7-day rolling window time-series grouping |
 | **Synthetic Generator** | Faker (`en_IN`), ReportLab | Indian registry simulation, injected shell cartels, automated PDF factory |
 | **Frontend UI** | HTML5, CSS Grid, Vanilla JS, vis.js | Zero-build dark mode SPA, Barnes-Hut physics graph, ELA modal viewer |
+| **Testing Suite** | Pytest, FastAPI TestClient | Unit testing for forensics, graph algorithms, fusion, and API endpoints |
 
 ---
 
@@ -138,23 +172,58 @@ False Negatives (Fraud Missed)      : 0 / 12
 trustchain/
 ├── config.py                 # Central control room: weights, paths, and thresholds
 ├── requirements.txt          # Frozen dependency manifest
-├── eval_benchmark.py         # Precision/Recall benchmark evaluation suite
+├── eval_benchmark.py         # Multi-layer benchmark evaluation suite (Graph, Doc, Fusion, Held-Out)
+├── LICENSE                   # MIT License
+├── README.md                 # System documentation
 │
 ├── data/
-│   ├── raw/                  # Generated JSON databases (entities.json, transactions.json)
+│   ├── raw/
+│   │   ├── entities.json     # Neutral corporate registry dataset
+│   │   ├── transactions.json # Financial ledger with log-normal pricing & cycles
+│   │   └── documents.json    # Explicit vendor-to-document mapping file
 │   ├── documents/            # Generated invoice PDFs and JPEG test files
-│   └── ground_truth.json     # Hidden validation ground truth
+│   └── ground_truth.json     # Hidden validation ground truth (shell rings & tampered docs)
 │
 ├── modules/
-│   ├── forensics/            # Layer A: ELA, metadata, Benford's Law, and orchestrator
-│   ├── graph/                # Layer B: Graph builder, Louvain, cycles, structuring
-│   └── scoring/              # Layer C: Multi-signal risk fusion and reason compiler
+│   ├── forensics/
+│   │   ├── ela.py            # Error Level Analysis, contour extraction, color heatmap
+│   │   ├── metadata.py       # PDF metadata & suspicious producer inspector
+│   │   ├── benford.py        # Benford's Law Chi-Square distribution analyzer
+│   │   └── engine.py         # Layer A Forensics Orchestrator
+│   ├── graph/
+│   │   ├── builder.py        # Graph construction & RapidFuzz token matching
+│   │   ├── louvain.py        # Louvain Community Detection & density scoring
+│   │   ├── cycles.py         # Johnson's elementary cycle detection (DiGraph)
+│   │   ├── behavioral.py     # Rolling 7-day AML structuring & threshold evasion
+│   │   └── engine.py         # Layer B Graph Orchestrator
+│   └── scoring/
+│       └── fusion.py         # Layer C: Transparent Rule-Escalation Fusion Engine
 │
-├── generator/                # Synthetic data generator (entities, transactions, PDF factory)
+├── generator/
+│   ├── entities.py           # Neutral company generator & planted shell cartels
+│   ├── transactions.py       # Log-normal payments, circular chains & structuring
+│   ├── pdf_factory.py        # Clean/tampered PDF and spliced JPEG invoice factory
+│   └── run_generator.py      # Master data generation CLI
 │
-├── backend/                  # FastAPI web server, Pydantic schemas, and services
+├── backend/
+│   ├── schemas.py            # Pydantic request/response data contracts
+│   ├── services.py           # Engine singletons, lazy risk caching & vis-network transformer
+│   └── main.py               # FastAPI gateway, CORS middleware & static media server
 │
-└── frontend/                 # Zero-build dashboard (index.html, style.css, graph.js, app.js)
+├── frontend/
+│   ├── index.html            # 3-column Single Page Application & forensic modal
+│   ├── css/
+│   │   └── style.css         # Dark theme design system
+│   └── js/
+│       ├── graph.js          # vis-network physics graph visualization
+│       └── app.js            # Live API state management, search, and upload handler
+│
+└── tests/
+    ├── conftest.py           # Pytest path configurations
+    ├── test_forensics.py     # Unit tests for ELA, Benford, and metadata
+    ├── test_graph.py         # Unit tests for entity linkage and cycle detection
+    ├── test_fusion.py        # Unit tests for rule escalations and risk bands
+    └── test_api.py           # API integration tests via FastAPI TestClient
 ```
 
 ---
@@ -189,27 +258,28 @@ pip install -r requirements.txt
 
 ### 4. Generate Synthetic Data & Test Invoices
 ```bash
-# 1. Generate companies, transactions, and injected shell rings
 python -m generator.run_generator
-
-# 2. Compile clean PDFs and tampered test invoices
-python -m generator.pdf_factory
 ```
 
-### 5. Start the FastAPI Server
+### 5. Run the Automated Test Suite
+```bash
+pytest -q
+```
+
+### 6. Start the FastAPI Server
 ```bash
 uvicorn backend.main:app --reload --port 8000
 ```
 
-### 6. Open the Dashboard
-Navigate to **`http://127.0.0.1:8000/`** in your browser to interact with the live dashboard.  
-Visit **`http://127.0.0.1:8000/docs`** for the interactive Swagger API docs.
+### 7. Open the Dashboard
+* Navigate to **`http://127.0.0.1:8000/`** in your browser to interact with the live dashboard.  
+* Visit **`http://127.0.0.1:8000/docs`** for the interactive Swagger API documentation.
 
 ---
 
 ## 🧪 Running the Benchmark Evaluation
 
-To independently verify the system against the blind ground-truth dataset:
+To independently verify the system across Graph-only, Document-only, Combined Fusion, and Held-out cases:
 
 ```bash
 python eval_benchmark.py
@@ -223,11 +293,13 @@ python eval_benchmark.py
 | :--- | :---: | :--- |
 | `/entities` | `GET` | Returns list of all registered vendor entities |
 | `/entities/{entity_id}` | `GET` | Returns full profile of a single vendor |
-| `/analyze-document` | `POST` | Upload an invoice (PDF/JPEG) to run Layer A forensics |
+| `/entities/{entity_id}/documents` | `GET` | Returns mapped invoices/documents for a specific entity |
+| `/analyze-document` | `POST` | Upload an invoice (PDF/JPEG) to run Layer A forensics (`entity_id` is optional) |
 | `/analyze-entity/{id}` | `GET` | Run Layer B graph intelligence on a specific company |
 | `/risk-score/{id}` | `GET` | Returns the complete fused risk score and reason dossier |
 | `/graph` | `GET` | Returns nodes and edges formatted for `vis-network` |
 
+---
 
 ## 📄 License
 
