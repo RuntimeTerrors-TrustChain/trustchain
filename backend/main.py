@@ -52,11 +52,14 @@ def list_entities():
 def get_entity_profile(entity_id: str):
     entity = get_entity_by_id(entity_id)
     if not entity:
-        raise HTTPException(status_code=404, detail="Entity not found")
+        raise HTTPException(status_code=404, detail=f"Entity '{entity_id}' not found in registry")
     return entity
 
 @app.get("/entities/{entity_id}/documents")
 def list_entity_documents(entity_id: str):
+    entity = get_entity_by_id(entity_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail=f"Entity '{entity_id}' not found in registry")
     return get_entity_documents(entity_id)
 
 # --- 2. Layer A: Document Forensics ---
@@ -75,11 +78,17 @@ async def upload_and_analyze_document(
 # --- 3. Layer B: Graph Intelligence ---
 @app.get("/analyze-entity/{entity_id}", response_model=GraphAnalysisResponse)
 def analyze_entity(entity_id: str):
+    entity = get_entity_by_id(entity_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail=f"Entity '{entity_id}' not found in registry")
     return analyze_vendor_graph(entity_id)
 
 # --- 4. Layer C: Combined Risk Score Fusion ---
 @app.get("/risk-score/{entity_id}")
 def get_risk_score(entity_id: str, doc_name: Optional[str] = None):
+    entity = get_entity_by_id(entity_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail=f"Entity '{entity_id}' not found in registry")
     return get_full_vendor_risk_assessment(entity_id, doc_name)
 
 # --- 5. Frontend Interactive Network Graph ---

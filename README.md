@@ -125,15 +125,19 @@ Evaluated on our synthetic commercial dataset with hidden ground truth (`data/gr
    TP: 3 | FP: 0 | TN: 119 | FN: 10
    Recall: 23.1% | Precision: 100.0% | F1: 37.5%
 
-3. COMBINED RISK FUSION (LAYER C):
-   TP: 13 | FP: 1 | TN: 118 | FN: 0
-   🎯 Accuracy : 99.24%
-   🔍 Recall   : 100.00% (Catches both document & syndicate fraud)
-   ⚖️  Precision: 92.86%
-   🏆 F1-Score : 96.30%
+=================================================================
+🏆 3. COMBINED RISK FUSION BENCHMARK (LAYER C)
+=================================================================
+TP: 13 | FP: 1 | TN: 118 | FN: 0
+🎯 Accuracy : 99.24%
+🔍 Recall   : 100.00% (Catches both document & syndicate fraud)
+⚖️  Precision: 92.86%
+🏆 F1-Score : 96.30%
 
-4. HELD-OUT TEST CASES (Unseen Seed Evaluation):
-   Generalization Recall: 100.0% (4 / 4 unseen shell entities detected)
+=================================================================
+🛡️  4. HELD-OUT TEST CASES (Unseen Seed Evaluation)
+=================================================================
+Held-Out Fraud Entities Detected: 4 / 4 (100.0% Generalization Recall)
 =================================================================
 ```
 *(Note: Evaluated on deterministically generated synthetic procurement data with planted ground truth. Combined multi-signal fusion outperforms either single layer in isolation).*
