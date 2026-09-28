@@ -1,20 +1,24 @@
 import sys
 from pathlib import Path
 
-# Add project root to sys.path for direct execution
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 import io
-from PIL import Image, ImageDraw
+import random
+from PIL import Image, ImageDraw, ImageFont
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
-from config import DOCS_DIR
+from pypdf import PdfReader, PdfWriter
+from config import DOCS_DIR, GLOBAL_SEED
 
-def generate_clean_invoice(invoice_id: str, vendor_id: str, vendor_name: str, total_amount: float) -> Path:
-    """Generates a legitimate, digitally generated PDF invoice."""
-    file_path = DOCS_DIR / f"{invoice_id}_clean.pdf"
+random.seed(GLOBAL_SEED)
+
+def generate_clean_invoice_pdf(doc_id: str, entity_id: str, vendor_name: str, total_amount: float) -> str:
+    """Generates a legitimate, digitally created PDF invoice."""
+    filename = f"{doc_id}_{entity_id}.pdf"
+    file_path = DOCS_DIR / filename
     
     doc = SimpleDocTemplate(
         str(file_path), 
@@ -28,17 +32,17 @@ def generate_clean_invoice(invoice_id: str, vendor_id: str, vendor_name: str, to
     story = []
 
     title_style = ParagraphStyle(name="Title", fontName="Helvetica-Bold", fontSize=18, leading=22)
-    story.append(Paragraph(f"INVOICE: {invoice_id}", title_style))
+    story.append(Paragraph(f"TAX INVOICE: {doc_id}", title_style))
     story.append(Spacer(1, 10))
-    story.append(Paragraph(f"<b>Vendor:</b> {vendor_name} (ID: {vendor_id})", styles["Normal"]))
-    story.append(Paragraph("<b>Date:</b> 2026-03-15", styles["Normal"]))
+    story.append(Paragraph(f"<b>Vendor:</b> {vendor_name} (ID: {entity_id})", styles["Normal"]))
+    story.append(Paragraph("<b>Date of Issue:</b> 2026-03-15", styles["Normal"]))
     story.append(Spacer(1, 20))
 
     data = [
         ["Item Description", "Qty", "Unit Price (₹)", "Total (₹)"],
         ["Structural Concrete Supply (Grade M25)", "40", "4,500.00", "180,000.00"],
         ["Reinforcement Steel Bars (TMT 500D)", "25", "5,200.00", "130,000.00"],
-        ["Logistics & Transport Surcharge", "1", "40,000.00", "40,000.00"],
+        ["Logistics & Surcharge", "1", f"{total_amount - 310000.0:,.2f}", f"{total_amount - 310000.0:,.2f}"],
         ["", "", "<b>Grand Total:</b>", f"<b>₹{total_amount:,.2f}</b>"]
     ]
     
@@ -53,45 +57,90 @@ def generate_clean_invoice(invoice_id: str, vendor_id: str, vendor_name: str, to
     ]))
     story.append(t)
     doc.build(story)
-    return file_path
+    return filename
 
-def generate_tampered_invoice_image(invoice_id: str, vendor_id: str) -> Path:
-    """
-    Creates an image-based invoice with a deliberately pasted/altered amount region.
-    """
-    img_path = DOCS_DIR / f"{invoice_id}_tampered.jpg"
+def generate_tampered_pdf_metadata(doc_id: str, entity_id: str, vendor_name: str, total_amount: float) -> str:
+    """Generates a PDF invoice with deliberately fraudulent metadata (Photoshop producer & ModDate mismatch)."""
+    clean_filename = generate_clean_invoice_pdf(f"temp_{doc_id}", entity_id, vendor_name, total_amount)
+    clean_path = DOCS_DIR / clean_filename
     
-    # Base clean canvas
+    reader = PdfReader(str(clean_path))
+    writer = PdfWriter()
+    for page in reader.pages:
+        writer.add_page(page)
+        
+    # Inject suspicious metadata stream
+    writer.add_metadata({
+        "/Producer": "Adobe Photoshop 25.2 (Windows)",
+        "/Creator": "Adobe Photoshop 2026",
+        "/CreationDate": "D:20260301100000Z",
+        "/ModDate": "D:20260320184500Z"
+    })
+    
+    out_filename = f"{doc_id}_{entity_id}_tampered_meta.pdf"
+    out_path = DOCS_DIR / out_filename
+    with open(out_path, "wb") as f:
+        writer.write(f)
+        
+    clean_path.unlink(missing_ok=True)
+    return out_filename
+
+def generate_tampered_invoice_image(
+    doc_id: str, 
+    entity_id: str, 
+    patch_text: str = "₹ 9,850,000.00", 
+    tamper_pos: tuple = (560, 210)
+) -> str:
+    """Creates a JPEG invoice with a spliced patch to test Error Level Analysis (ELA)."""
+    filename = f"{doc_id}_{entity_id}_tampered.jpg"
+    img_path = DOCS_DIR / filename
+    
     img = Image.new("RGB", (800, 1000), "white")
     draw = ImageDraw.Draw(img)
     
     draw.rectangle([(20, 20), (780, 80)], fill=(44, 62, 80))
-    draw.text((40, 35), f"COMMERCIAL INVOICE - {invoice_id}", fill=(255, 255, 255))
-    draw.text((40, 110), f"Vendor ID: {vendor_id}", fill=(0, 0, 0))
+    draw.text((40, 35), f"COMMERCIAL INVOICE - {doc_id}", fill=(255, 255, 255))
+    draw.text((40, 110), f"Vendor ID: {entity_id}", fill=(0, 0, 0))
     draw.text((40, 140), "Issued: 2026-03-10", fill=(0, 0, 0))
     
     draw.text((40, 220), "Procurement Supply: Industrial Cables", fill=(0, 0, 0))
     draw.text((600, 220), "₹ 150,000.00", fill=(0, 0, 0))
     
+    draw.text((40, 320), "Authorized Signature & Stamp:", fill=(0, 0, 0))
+    draw.rectangle([(40, 350), (250, 420)], outline=(180, 180, 180), width=1)
+    draw.text((60, 375), "[ Verified Official Stamp ]", fill=(100, 100, 100))
+    
     img.save(img_path, "JPEG", quality=95)
     
-    # Tampering: Paste degraded compression patch
+    # Tampering: Splice a low-quality patch
     tampered = Image.open(img_path).convert("RGB")
     patch = Image.new("RGB", (220, 45), "white")
     p_draw = ImageDraw.Draw(patch)
-    p_draw.text((10, 10), "₹ 9,850,000.00", fill=(200, 0, 0))
+    p_draw.text((10, 10), patch_text, fill=(180, 0, 0))
     
     buf = io.BytesIO()
     patch.save(buf, "JPEG", quality=60)
     buf.seek(0)
     patch_degraded = Image.open(buf)
     
-    tampered.paste(patch_degraded, (560, 210))
+    tampered.paste(patch_degraded, tamper_pos)
     tampered.save(img_path, "JPEG", quality=90)
-    
-    return img_path
+    return filename
 
-if __name__ == "__main__":
-    generate_clean_invoice("INV-2026-001", "VEND-1001", "Clean Corp", 350000.0)
-    generate_tampered_invoice_image("INV-2026-TAMPERED", "VEND-SHELL-CLUSTER-01-1")
-    print(f"✅ Generated sample invoices in '{DOCS_DIR}'")
+def generate_clean_invoice_image(doc_id: str, entity_id: str) -> str:
+    """Generates an authentic, non-tampered JPEG invoice for clean controls."""
+    filename = f"{doc_id}_{entity_id}_clean.jpg"
+    img_path = DOCS_DIR / filename
+    
+    img = Image.new("RGB", (800, 1000), "white")
+    draw = ImageDraw.Draw(img)
+    
+    draw.rectangle([(20, 20), (780, 80)], fill=(44, 62, 80))
+    draw.text((40, 35), f"COMMERCIAL INVOICE - {doc_id}", fill=(255, 255, 255))
+    draw.text((40, 110), f"Vendor ID: {entity_id}", fill=(0, 0, 0))
+    draw.text((40, 140), "Issued: 2026-03-10", fill=(0, 0, 0))
+    draw.text((40, 220), "Procurement Supply: Certified Hardware Units", fill=(0, 0, 0))
+    draw.text((600, 220), "₹ 150,000.00", fill=(0, 0, 0))
+    
+    img.save(img_path, "JPEG", quality=90)
+    return filename

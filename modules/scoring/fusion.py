@@ -2,6 +2,7 @@ from typing import Dict, Any, List
 from config import (
     WEIGHT_DOCUMENT,
     WEIGHT_GRAPH,
+    ESCALATION_CLUSTER_STANDALONE,
     ESCALATION_CLUSTER_AND_TAMPER,
     ESCALATION_CYCLE_AND_METADATA,
     SCORE_BAND_HIGH,
@@ -15,16 +16,37 @@ def compute_combined_risk_score(doc_result: Dict[str, Any], graph_result: Dict[s
     """
     doc_score = float(doc_result.get("authenticity_score", 0.0))
     graph_score = float(graph_result.get("graph_risk_score", 0.0))
+    has_document = doc_result.get("document_id") not in [None, "NONE", ""]
 
     # 1. Base Weighted Score
-    base_score = (WEIGHT_DOCUMENT * doc_score) + (WEIGHT_GRAPH * graph_score)
+    if has_document:
+        base_score = (WEIGHT_DOCUMENT * doc_score) + (WEIGHT_GRAPH * graph_score)
+    else:
+        # If no document was submitted, graph is the primary signal
+        base_score = graph_score
+
     escalation = 0.0
     escalation_reasons: List[str] = []
 
-    # Escalation Rule 1: Tampered Document + Belongs to Shell Cluster
-    has_tamper = doc_score >= 40.0 or len(doc_result.get("ela_hotspots", [])) > 0
-    in_shell_cluster = (graph_result.get("cluster_size", 1) > 1) or (graph_result.get("cluster_density", 0.0) >= 0.5)
+    has_tamper = doc_score >= 40.0 or len(doc_result.get("ela_hotspots", [])) > 0 or len(doc_result.get("metadata_flags", [])) > 0
+    in_shell_cluster = (graph_result.get("cluster_size", 1) > 1) and (graph_result.get("cluster_density", 0.0) >= 0.5)
 
+    # Standalone Tampered Document Rule (guarantees tampered doc alone reaches at least MEDIUM)
+    if has_tamper and not in_shell_cluster:
+        escalation += 20.0
+        escalation_reasons.append(
+            "⚠️ DOCUMENT RISK: Physical document forensic anomalies detected on vendor submission."
+        )
+
+    # Standalone Shell Cluster Rule (guarantees shell members reach at least MEDIUM even without docs)
+    if in_shell_cluster and not has_tamper:
+        if base_score < SCORE_BAND_MEDIUM:
+            escalation += ESCALATION_CLUSTER_STANDALONE
+            escalation_reasons.append(
+                f"⚠️ NETWORK RISK: Entity identified as part of an active shell syndicate (Density: {graph_result.get('cluster_density')})."
+            )
+
+    # Escalation Rule 1: Tampered Document + Belongs to Shell Cluster -> HIGH
     if has_tamper and in_shell_cluster:
         escalation += ESCALATION_CLUSTER_AND_TAMPER
         escalation_reasons.append(
@@ -32,10 +54,9 @@ def compute_combined_risk_score(doc_result: Dict[str, Any], graph_result: Dict[s
             "— combined fraud signal indicates organized bidding fraud."
         )
 
-    # Escalation Rule 2: Inconsistency + Circular Fund Routing
+    # Escalation Rule 2: Inconsistency + Circular Fund Routing -> HIGH
     has_meta_or_ela = len(doc_result.get("metadata_flags", [])) > 0 or len(doc_result.get("ela_hotspots", [])) > 0
     has_cycles = len(graph_result.get("cycles_involved", [])) > 0
-
     if has_meta_or_ela and has_cycles:
         escalation += ESCALATION_CYCLE_AND_METADATA
         escalation_reasons.append(
@@ -53,7 +74,6 @@ def compute_combined_risk_score(doc_result: Dict[str, Any], graph_result: Dict[s
     else:
         risk_band = "LOW"
 
-    # Combine all explainable reasons cleanly
     all_reasons = (
         doc_result.get("reasons", [])
         + graph_result.get("reasons", [])

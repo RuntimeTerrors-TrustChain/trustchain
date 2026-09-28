@@ -18,6 +18,7 @@ from backend.schemas import (
 from backend.services import (
     get_all_entities,
     get_entity_by_id,
+    get_entity_documents,
     analyze_vendor_document,
     analyze_vendor_graph,
     get_full_vendor_risk_assessment,
@@ -54,10 +55,14 @@ def get_entity_profile(entity_id: str):
         raise HTTPException(status_code=404, detail="Entity not found")
     return entity
 
+@app.get("/entities/{entity_id}/documents")
+def list_entity_documents(entity_id: str):
+    return get_entity_documents(entity_id)
+
 # --- 2. Layer A: Document Forensics ---
 @app.post("/analyze-document")
 async def upload_and_analyze_document(
-    entity_id: str = Query(...),
+    entity_id: Optional[str] = Query(None, description="Optional associated vendor ID"),
     file: UploadFile = File(...)
 ):
     temp_path = DOCS_DIR / f"upload_{file.filename}"
