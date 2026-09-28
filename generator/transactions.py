@@ -4,19 +4,23 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Tuple
 from config import GLOBAL_SEED, STRUCTURING_THRESHOLD
 
+# Pinned deterministic reference date (eliminates time-dependent grouping shifts)
+FIXED_BASE_DATE = datetime(2026, 1, 15, 9, 0, 0)
+
 np.random.seed(GLOBAL_SEED)
 random.seed(GLOBAL_SEED)
 
-def generate_clean_transactions(entity_ids: List[str], count: int = 800) -> List[Dict]:
+def generate_clean_transactions(entity_ids: List[str], count: int = 700) -> List[Dict]:
     """Generates authentic business transactions obeying log-normal distribution."""
+    random.seed(GLOBAL_SEED)
+    np.random.seed(GLOBAL_SEED)
+    
     transactions = []
-    # Log-normal distribution naturally satisfies Benford's Law
     amounts = np.random.lognormal(mean=10.5, sigma=1.2, size=count)
-    base_date = datetime.now() - timedelta(days=180)
     
     for i in range(count):
         sender, receiver = random.sample(entity_ids, 2)
-        txn_date = base_date + timedelta(days=random.randint(0, 180), minutes=random.randint(0, 1440))
+        txn_date = FIXED_BASE_DATE + timedelta(days=random.randint(0, 150), minutes=random.randint(0, 1440))
         transactions.append({
             "transaction_id": f"TXN-{10000 + i}",
             "from_entity": sender,
@@ -34,14 +38,11 @@ def inject_circular_chain(cluster_members: List[str], cycle_amount: float = 2500
     hop_count = min(len(cluster_members), 3)
     cycle_nodes = cluster_members[:hop_count]
     
-    base_date = datetime.now() - timedelta(days=15)
-    
     for i in range(hop_count):
         sender = cycle_nodes[i]
         receiver = cycle_nodes[(i + 1) % hop_count]
-        # Slight variation in amount to mimic fake margin deduction
         txn_amount = cycle_amount * (1.0 - (i * 0.01))
-        txn_date = base_date + timedelta(days=i * 2, hours=random.randint(1, 5))
+        txn_date = FIXED_BASE_DATE + timedelta(days=160 + (i * 2), hours=10 + i)
         
         transactions.append({
             "transaction_id": f"TXN-CYCLE-{sender[-4:]}-{receiver[-4:]}",
@@ -63,12 +64,10 @@ def inject_circular_chain(cluster_members: List[str], cycle_amount: float = 2500
 def inject_structuring_pattern(sender_id: str, receiver_id: str, count: int = 4) -> Tuple[List[Dict], Dict]:
     """Injects transactions just below the threshold within 48 hours."""
     transactions = []
-    base_date = datetime.now() - timedelta(days=5)
     
     for i in range(count):
-        # Amounts deliberately placed in the near-band (e.g. 48,500 to 49,800)
         amount = round(random.uniform(STRUCTURING_THRESHOLD * 0.96, STRUCTURING_THRESHOLD * 0.99), 2)
-        txn_date = base_date + timedelta(hours=i * 8 + random.randint(1, 3))
+        txn_date = FIXED_BASE_DATE + timedelta(days=170, hours=i * 8 + 2)
         
         transactions.append({
             "transaction_id": f"TXN-STRUCT-{i+1}",

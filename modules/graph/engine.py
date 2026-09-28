@@ -22,7 +22,7 @@ class GraphIntelligenceEngine:
         score = 0.0
         reasons = []
         
-        # 1. Shell Cluster Check
+        # 1. Shell Cluster Check (40.0 pts)
         entity_cluster = None
         for cluster in self.shell_clusters:
             if entity_id in cluster["members"]:
@@ -34,10 +34,10 @@ class GraphIntelligenceEngine:
                 )
                 break
 
-        # 2. Circular Invoicing (Cleanly Aggregated)
+        # 2. Circular Invoicing (30.0 pts)
         entity_cycles = [c for c in self.circular_cycles if entity_id in c["path"]]
         if entity_cycles:
-            score += 35.0
+            score += 30.0
             primary_cycle = entity_cycles[0]
             reasons.append(
                 f"Involved in primary {primary_cycle['hop_count']}-hop circular transaction ring totaling ₹{primary_cycle['total_flow']:,.2f}"
@@ -48,7 +48,7 @@ class GraphIntelligenceEngine:
                     f"Detected {len(entity_cycles)} linked circular flow paths with cumulative volume of ₹{total_cycle_volume:,.2f}"
                 )
 
-        # 3. Structuring Check
+        # 3. Structuring Check (25.0 pts)
         is_structuring = any(s["entity_id"] == entity_id for s in self.structuring_events)
         if is_structuring:
             score += 25.0
@@ -62,7 +62,7 @@ class GraphIntelligenceEngine:
             "cluster_density": entity_cluster["density"] if entity_cluster else 0.0,
             "cluster_size": entity_cluster["size"] if entity_cluster else 1,
             "shared_links": entity_cluster["shared_links"] if entity_cluster else [],
-            "cycles_involved": entity_cycles[:3],  # Keep top 3 for UI payload
+            "cycles_involved": entity_cycles[:3],
             "structuring_flag": is_structuring,
             "fan_pattern_flag": len(entity_cycles) > 0,
             "graph_risk_score": round(graph_risk_score, 1),

@@ -119,18 +119,18 @@ Evaluated on our synthetic commercial dataset with hidden ground truth (`data/gr
 =================================================================
 1. GRAPH-ONLY ENGINE BENCHMARK:
    TP: 12 | FP: 1 | TN: 118 | FN: 1
-   Recall: 92.3% | Precision: 92.3% | F1-Score: 92.3%
+   Recall: 92.3% | Precision: 92.3% | F1: 92.3%
 
 2. DOCUMENT-ONLY FORENSICS BENCHMARK:
-   TP: 3 | FP: 1 | TN: 118 | FN: 10
-   Recall: 23.1% | Precision: 75.0% | F1-Score: 35.3%
+   TP: 3 | FP: 0 | TN: 119 | FN: 10
+   Recall: 23.1% | Precision: 100.0% | F1: 37.5%
 
 3. COMBINED RISK FUSION (LAYER C):
-   TP: 13 | FP: 2 | TN: 117 | FN: 0
-   🎯 Accuracy : 98.48%
+   TP: 13 | FP: 1 | TN: 118 | FN: 0
+   🎯 Accuracy : 99.24%
    🔍 Recall   : 100.00% (Catches both document & syndicate fraud)
-   ⚖️  Precision: 86.67%
-   🏆 F1-Score : 92.86%
+   ⚖️  Precision: 92.86%
+   🏆 F1-Score : 96.30%
 
 4. HELD-OUT TEST CASES (Unseen Seed Evaluation):
    Generalization Recall: 100.0% (4 / 4 unseen shell entities detected)

@@ -84,48 +84,8 @@ def generate_tampered_pdf_metadata(doc_id: str, entity_id: str, vendor_name: str
     clean_path.unlink(missing_ok=True)
     return out_filename
 
-def generate_tampered_invoice_image(
-    doc_id: str, 
-    entity_id: str, 
-    patch_text: str = "₹ 9,850,000.00", 
-    tamper_pos: tuple = (560, 210)
-) -> str:
-    """Creates a JPEG invoice with a spliced low-quality patch."""
-    filename = f"{doc_id}_{entity_id}_tampered.jpg"
-    img_path = DOCS_DIR / filename
-    
-    img = Image.new("RGB", (800, 1000), "white")
-    draw = ImageDraw.Draw(img)
-    
-    draw.rectangle([(20, 20), (780, 80)], fill=(44, 62, 80))
-    draw.text((40, 35), f"COMMERCIAL INVOICE - {doc_id}", fill=(255, 255, 255))
-    draw.text((40, 110), f"Vendor ID: {entity_id}", fill=(0, 0, 0))
-    draw.text((40, 140), "Issued: 2026-03-10", fill=(0, 0, 0))
-    
-    draw.text((40, 220), "Procurement Supply: Industrial Cables", fill=(0, 0, 0))
-    draw.text((600, 220), "₹ 150,000.00", fill=(0, 0, 0))
-    
-    draw.text((40, 320), "Authorized Signature & Stamp:", fill=(0, 0, 0))
-    draw.rectangle([(40, 350), (250, 420)], outline=(180, 180, 180), width=1)
-    draw.text((60, 375), "[ Verified Official Stamp ]", fill=(100, 100, 100))
-    
-    # Degrade the patch heavily (quality 20)
-    patch = Image.new("RGB", (220, 45), "white")
-    p_draw = ImageDraw.Draw(patch)
-    p_draw.text((10, 10), patch_text, fill=(180, 0, 0))
-    
-    buf = io.BytesIO()
-    patch.save(buf, "JPEG", quality=20)
-    buf.seek(0)
-    patch_degraded = Image.open(buf)
-    
-    img.paste(patch_degraded, tamper_pos)
-    # Save the composite at 98 quality so ELA recompression at 90 exposes the patch
-    img.save(img_path, "JPEG", quality=98)
-    return filename
-
 def generate_clean_invoice_image(doc_id: str, entity_id: str) -> str:
-    """Generates an authentic, non-tampered JPEG invoice."""
+    """Generates an authentic, non-tampered JPEG invoice saved at quality 90."""
     filename = f"{doc_id}_{entity_id}_clean.jpg"
     img_path = DOCS_DIR / filename
     
@@ -137,7 +97,58 @@ def generate_clean_invoice_image(doc_id: str, entity_id: str) -> str:
     draw.text((40, 110), f"Vendor ID: {entity_id}", fill=(0, 0, 0))
     draw.text((40, 140), "Issued: 2026-03-10", fill=(0, 0, 0))
     draw.text((40, 220), "Procurement Supply: Certified Hardware Units", fill=(0, 0, 0))
-    draw.text((600, 220), "₹ 150,000.00", fill=(0, 0, 0))
+    draw.text((580, 220), "₹ 150,000.00", fill=(0, 0, 0))
     
-    img.save(img_path, "JPEG", quality=98)
+    # Base authentic invoice is saved at 90 quality
+    img.save(img_path, "JPEG", quality=90)
+    return filename
+
+def generate_tampered_invoice_image(
+    doc_id: str, 
+    entity_id: str, 
+    patch_text: str = "₹ 9,850,000.00", 
+    tamper_pos: tuple = (540, 205)
+) -> str:
+    """
+    Creates an authentic base JPEG invoice at quality 90, then splices a foreign 
+    tinted low-quality patch to create an unmistakable ELA compression differential.
+    """
+    filename = f"{doc_id}_{entity_id}_tampered.jpg"
+    img_path = DOCS_DIR / filename
+    
+    # 1. Base clean invoice
+    img = Image.new("RGB", (800, 1000), "white")
+    draw = ImageDraw.Draw(img)
+    
+    draw.rectangle([(20, 20), (780, 80)], fill=(44, 62, 80))
+    draw.text((40, 35), f"COMMERCIAL INVOICE - {doc_id}", fill=(255, 255, 255))
+    draw.text((40, 110), f"Vendor ID: {entity_id}", fill=(0, 0, 0))
+    draw.text((40, 140), "Issued: 2026-03-10", fill=(0, 0, 0))
+    draw.text((40, 220), "Procurement Supply: Industrial Cables", fill=(0, 0, 0))
+    draw.text((580, 220), "₹ 150,000.00", fill=(0, 0, 0))
+    
+    draw.text((40, 320), "Authorized Signature & Stamp:", fill=(0, 0, 0))
+    draw.rectangle([(40, 350), (250, 420)], outline=(180, 180, 180), width=1)
+    draw.text((60, 375), "[ Verified Official Stamp ]", fill=(100, 100, 100))
+    
+    # Base is compressed once at 90
+    buf_base = io.BytesIO()
+    img.save(buf_base, "JPEG", quality=90)
+    buf_base.seek(0)
+    base_degraded = Image.open(buf_base)
+    
+    # 2. Foreign Spliced Patch: tinted box + text + compressed at quality 30
+    patch = Image.new("RGB", (230, 45), (246, 246, 250))
+    p_draw = ImageDraw.Draw(patch)
+    p_draw.rectangle([(0, 0), (229, 44)], outline=(210, 210, 215), width=1)
+    p_draw.text((12, 12), patch_text, fill=(180, 0, 0))
+    
+    buf_patch = io.BytesIO()
+    patch.save(buf_patch, "JPEG", quality=30)
+    buf_patch.seek(0)
+    patch_degraded = Image.open(buf_patch)
+    
+    # 3. Splice and save final composite at quality 90
+    base_degraded.paste(patch_degraded, tamper_pos)
+    base_degraded.save(img_path, "JPEG", quality=90)
     return filename

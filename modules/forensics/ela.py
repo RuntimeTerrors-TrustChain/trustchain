@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image, ImageChops
 from pathlib import Path
 from typing import Tuple, List, Dict, Any
-from config import ELA_JPEG_QUALITY, ELA_AMPLIFICATION_SCALE, ELA_HOTSPOT_PERCENTILE, DOCS_DIR
+from config import ELA_JPEG_QUALITY, ELA_AMPLIFICATION_SCALE, DOCS_DIR
 
 def run_ela(
     image_path: str, 
@@ -28,10 +28,10 @@ def run_ela(
 
     gray_diff = cv2.cvtColor(diff_array, cv2.COLOR_RGB2GRAY)
     
-    # Dynamic Statistical Threshold: mean + 2.0 * standard deviation
+    # Statistical Thresholding: Requires pixel error to be significantly above background
     mean_err = float(np.mean(gray_diff))
     std_err = float(np.std(gray_diff))
-    threshold_value = max(18.0, mean_err + (2.0 * std_err))
+    threshold_value = max(25.0, mean_err + (2.0 * std_err))
     
     _, thresh = cv2.threshold(gray_diff, int(threshold_value), 255, cv2.THRESH_BINARY)
     
@@ -49,7 +49,8 @@ def run_ela(
         if 80.0 < area < (total_area * 0.35):
             x, y, bw, bh = cv2.boundingRect(cnt)
             roi = np.asarray(gray_diff[y:y+bh, x:x+bw])
-            intensity = float(np.mean(roi) / 255.0) if roi.size > 0 else 0.0
+            # Max pixel intensity captures the peak tamper energy of the text stroke
+            intensity = float(np.max(roi) / 255.0) if roi.size > 0 else 0.0
             
             cv2.rectangle(color_heatmap, (x, y), (x + bw, y + bh), (0, 0, 255), 2)
             hotspots.append({

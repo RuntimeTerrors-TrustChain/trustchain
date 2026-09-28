@@ -7,6 +7,7 @@ from config import (
     ESCALATION_CYCLE_AND_METADATA,
     SCORE_BAND_HIGH,
     SCORE_BAND_MEDIUM,
+    ELA_MIN_INTENSITY_THRESHOLD,
 )
 
 def compute_combined_risk_score(doc_result: Dict[str, Any], graph_result: Dict[str, Any]) -> Dict[str, Any]:
@@ -27,7 +28,9 @@ def compute_combined_risk_score(doc_result: Dict[str, Any], graph_result: Dict[s
     escalation = 0.0
     escalation_reasons: List[str] = []
 
-    has_tamper = doc_score >= 40.0 or len(doc_result.get("ela_hotspots", [])) > 0 or len(doc_result.get("metadata_flags", [])) > 0
+    has_high_intensity_hotspot = any(h.get("intensity", 0.0) >= ELA_MIN_INTENSITY_THRESHOLD for h in doc_result.get("ela_hotspots", []))
+    has_tamper = doc_score >= 40.0 or has_high_intensity_hotspot or len(doc_result.get("metadata_flags", [])) > 0
+    
     in_shell_cluster = (graph_result.get("cluster_size", 1) >= 3) and (graph_result.get("cluster_density", 0.0) >= 0.5)
 
     # Standalone Tampered Document Rule (tampered doc alone -> MEDIUM)
@@ -54,7 +57,7 @@ def compute_combined_risk_score(doc_result: Dict[str, Any], graph_result: Dict[s
         )
 
     # Escalation Rule 2: Inconsistency + Circular Fund Routing -> HIGH
-    has_meta_or_ela = len(doc_result.get("metadata_flags", [])) > 0 or len(doc_result.get("ela_hotspots", [])) > 0
+    has_meta_or_ela = len(doc_result.get("metadata_flags", [])) > 0 or has_high_intensity_hotspot
     has_cycles = len(graph_result.get("cycles_involved", [])) > 0
     if has_meta_or_ela and has_cycles:
         escalation += ESCALATION_CYCLE_AND_METADATA

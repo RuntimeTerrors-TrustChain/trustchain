@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Any
 from modules.forensics.ela import run_ela
 from modules.forensics.metadata import analyze_pdf_metadata
 from modules.forensics.benford import benfords_law_score
+from config import ELA_MIN_INTENSITY_THRESHOLD
 
 class DocumentForensicsEngine:
     def analyze_document(
@@ -19,13 +20,18 @@ class DocumentForensicsEngine:
 
         # 1. ELA analysis (for image formats)
         if file_path.suffix.lower() in [".jpg", ".jpeg", ".png"]:
-            _, hotspots, heatmap_file = run_ela(str(file_path))
+            _, raw_hotspots, heatmap_file = run_ela(str(file_path))
             heatmap_image = f"/docs-media/{heatmap_file}"
-            if hotspots:
-                highest_intensity = max(h["intensity"] for h in hotspots)
+            
+            # Filter strictly for hotspots meeting the statistical threshold (>= 0.30)
+            significant_hotspots = [h for h in raw_hotspots if h["intensity"] >= ELA_MIN_INTENSITY_THRESHOLD]
+            hotspots = significant_hotspots
+            
+            if significant_hotspots:
+                highest_intensity = max(h["intensity"] for h in significant_hotspots)
                 authenticity_score += 50.0 + (highest_intensity * 20.0)
                 reasons.append(
-                    f"Error Level Analysis (ELA) detected {len(hotspots)} tampered hotspot(s) (intensity: {highest_intensity})"
+                    f"Error Level Analysis (ELA) detected {len(significant_hotspots)} tampered hotspot(s) (intensity: {highest_intensity})"
                 )
 
         # 2. PDF Metadata check
@@ -33,7 +39,7 @@ class DocumentForensicsEngine:
             meta_res = analyze_pdf_metadata(file_path)
             metadata_flags = meta_res["metadata_flags"]
             if meta_res["is_tampered"]:
-                authenticity_score += 35.0
+                authenticity_score += 45.0
                 reasons.extend(meta_res["reasons"])
 
         # 3. Benford's Law on vendor history

@@ -22,6 +22,7 @@ GLOBAL_SEED = 42
 ELA_JPEG_QUALITY = 90             # Baseline compression quality for ELA diff
 ELA_AMPLIFICATION_SCALE = 20      # Multiplier to make subtle pixel diffs visible
 ELA_HOTSPOT_PERCENTILE = 85       # Cutoff to ignore baseline scanner noise
+ELA_MIN_INTENSITY_THRESHOLD = 0.30 # True tampering threshold (separates clean <0.05 from tampered >0.45)
 BENFORD_MIN_SAMPLE_SIZE = 10      # Minimum line items needed for reliable vendor score
 BENFORD_ANOMALY_THRESHOLD = 0.15  # Chi-square deviation cutoff indicating fabrication
 
