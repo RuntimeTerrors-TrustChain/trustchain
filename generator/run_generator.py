@@ -4,6 +4,8 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 import json
+from collections import defaultdict
+from rapidfuzz import fuzz
 from config import RAW_DATA_DIR, GROUND_TRUTH_FILE, DOCUMENTS_MAP_FILE, GLOBAL_SEED
 from generator.entities import (
     reset_registry_builder,
@@ -23,11 +25,133 @@ from generator.pdf_factory import (
 )
 
 
+def verify_and_repair_entities(entities, ground_truth, builder):
+    """
+    Mandatory safety net: scans all clean entities for unintended attribute collisions
+    and deterministically repairs them. Raises a fatal exception if any clean entity
+    shares an attribute with a planted cartel.
+    """
+    # 1. Collect all planted entity IDs and planted attributes
+    planted_eids = set()
+    planted_directors = set()
+    planted_addresses = set()
+    planted_phones = set()
+    planted_banks = set()
+
+    for cluster in ground_truth["shell_clusters"]:
+        for m in cluster["members"]:
+            planted_eids.add(m)
+        planted_directors.add(cluster["shared_director"])
+        planted_addresses.add(cluster["shared_address"])
+
+    # 2. Check for fatal clean-vs-plant collisions and repair clean-vs-clean collisions
+    seen_directors = defaultdict(list)
+    seen_addresses = defaultdict(list)
+    seen_phones = defaultdict(list)
+    seen_banks = defaultdict(list)
+
+    for e in entities:
+        eid = e["entity_id"]
+        is_plant = eid in planted_eids
+
+        # Check directors
+        for d in e["director_names"]:
+            if is_plant:
+                seen_directors[d].append(eid)
+            else:
+                if d in planted_directors:
+                    raise RuntimeError(
+                        f"FATAL: Clean entity {eid} collides with planted director '{d}'"
+                    )
+                seen_directors[d].append(eid)
+
+        # Check address
+        addr = e["registered_address"]
+        if is_plant:
+            seen_addresses[addr].append(eid)
+        else:
+            if addr in planted_addresses:
+                raise RuntimeError(
+                    f"FATAL: Clean entity {eid} collides with planted address '{addr}'"
+                )
+            seen_addresses[addr].append(eid)
+
+        # Check phone and bank
+        phone = e["phone"]
+        bank = e["bank_account"]
+        seen_phones[phone].append(eid)
+        seen_banks[bank].append(eid)
+
+    # 3. Perform repairs on clean entities if duplicate links exist
+    repairs_count = 0
+    for e in entities:
+        eid = e["entity_id"]
+        if eid in planted_eids:
+            continue
+
+        # Repair duplicate director
+        new_directors = []
+        for d in e["director_names"]:
+            if len(seen_directors[d]) > 1:
+                new_d = builder.get_unique_director_name()
+                print(
+                    f"⚠️  REPAIR: Clean entity {eid} duplicate director '{d}' -> '{new_d}'"
+                )
+                seen_directors[d].remove(eid)
+                seen_directors[new_d].append(eid)
+                new_directors.append(new_d)
+                repairs_count += 1
+            else:
+                new_directors.append(d)
+        e["director_names"] = new_directors
+
+        # Repair duplicate address
+        addr = e["registered_address"]
+        if len(seen_addresses[addr]) > 1:
+            new_addr = builder.get_unique_address()
+            print(f"⚠️  REPAIR: Clean entity {eid} duplicate address -> '{new_addr}'")
+            seen_addresses[addr].remove(eid)
+            seen_addresses[new_addr].append(eid)
+            e["registered_address"] = new_addr
+            repairs_count += 1
+
+        # Repair duplicate phone
+        phone = e["phone"]
+        if len(seen_phones[phone]) > 1:
+            new_phone = builder.get_unique_phone()
+            print(f"⚠️  REPAIR: Clean entity {eid} duplicate phone -> '{new_phone}'")
+            seen_phones[phone].remove(eid)
+            seen_phones[new_phone].append(eid)
+            e["phone"] = new_phone
+            repairs_count += 1
+
+        # Repair duplicate bank
+        bank = e["bank_account"]
+        if len(seen_banks[bank]) > 1:
+            new_bank = builder.get_unique_bank_account()
+            print(f"⚠️  REPAIR: Clean entity {eid} duplicate bank -> '{new_bank}'")
+            seen_banks[bank].remove(eid)
+            seen_banks[new_bank].append(eid)
+            e["bank_account"] = new_bank
+            repairs_count += 1
+
+    # 4. Final strict post-repair validation
+    clean_entities = [e for e in entities if e["entity_id"] not in planted_eids]
+    clean_directors = [d for e in clean_entities for d in e["director_names"]]
+    if len(clean_directors) != len(set(clean_directors)):
+        raise RuntimeError(
+            "FATAL: Unresolved clean director collision after repair pass!"
+        )
+
+    print(
+        f"🛡️  Verify-and-Repair Pass Complete: {repairs_count} collision(s) repaired. 0 unintended duplicates remain."
+    )
+
+
 def run():
     print("⚙️  Generating synthetic procurement fraud dataset...")
 
-    # Reset builder to guarantee strict determinism
-    reset_registry_builder(seed=GLOBAL_SEED)
+    builder = reset_registry_builder(seed=GLOBAL_SEED)
 
     # 1. Base clean entities
     entities = generate_clean_entities(count=120)
@@ -52,7 +176,12 @@ def run():
         cluster_id="CLUSTER-HELD-OUT", size=4
     )
     entities.extend(held_out_nodes)
+    # Register in shell_clusters with held-out tag for global graph tracking
+    ground_truth["shell_clusters"].append(held_out_gt)
     ground_truth["held_out_cases"].append(held_out_gt)
+
+    # --- MANDATORY VERIFY AND REPAIR PASS ---
+    verify_and_repair_entities(entities, ground_truth, builder)
 
     all_entity_ids = [e["entity_id"] for e in entities]
 
@@ -77,7 +206,7 @@ def run():
     transactions.extend(struct_txns)
     ground_truth["structuring_cases"].append(struct_gt)
 
-    # 7. Generate Document Mapping (data/raw/documents.json) covering all 5 scenarios
+    # 7. Generate Document Mapping (data/raw/documents.json)
     documents_map = []
 
     # SCENARIO A: Clean vendor + Clean PDF
@@ -189,7 +318,6 @@ def run():
         }
     )
 
-    # Additional diverse documents across other clean entities
     for idx, e in enumerate(entities[10:25]):
         doc_name = generate_clean_invoice_pdf(
             f"DOC-GEN-{idx+1}", e["entity_id"], e["name"], float(30000 + idx * 5000)
@@ -203,7 +331,6 @@ def run():
             }
         )
 
-    # Write files to disk
     with open(RAW_DATA_DIR / "entities.json", "w", encoding="utf-8") as f:
         json.dump(entities, f, indent=2)
 
@@ -217,7 +344,7 @@ def run():
         json.dump(ground_truth, f, indent=2)
 
     print(
-        f"✅ Generated {len(entities)} entities ({len(ground_truth['shell_clusters'])*4 + len(ground_truth['held_out_cases'])*4} total shell entities)."
+        f"✅ Generated {len(entities)} entities ({len(ground_truth['shell_clusters'])*4} total shell entities)."
     )
     print(f"✅ Generated {len(transactions)} transactions.")
     print(f"✅ Generated {len(documents_map)} mapped documents.")

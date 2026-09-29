@@ -4,20 +4,16 @@ from rapidfuzz import fuzz
 from typing import List, Dict, Tuple, Set
 from config import GLOBAL_SEED
 
-fake = Faker("en_IN")
-Faker.seed(GLOBAL_SEED)
-random.seed(GLOBAL_SEED)
-
 
 class EntityRegistryBuilder:
     """
     Collision-free synthetic entity builder.
-    Guarantees that clean entities never share director names, addresses,
-    phones, or bank accounts with each other or with planted shell cartels.
+    Tracks all assigned attributes to prevent birthday-paradox collisions.
     """
 
     def __init__(self, seed: int = GLOBAL_SEED):
         self.fake = Faker("en_IN")
+        self.seed = seed
         Faker.seed(seed)
         random.seed(seed)
         self.used_entity_ids: Set[str] = set()
@@ -34,13 +30,13 @@ class EntityRegistryBuilder:
                 return eid
 
     def get_unique_director_name(self, max_attempts: int = 50) -> str:
-        for _ in range(max_attempts):
+        for attempt in range(max_attempts):
             first = self.fake.first_name()
             last = self.fake.last_name()
-            middle_initial = chr(65 + (len(self.used_directors) * 7 + _) % 26)
+            # Distribute unique middle initials
+            middle_initial = chr(65 + (len(self.used_directors) * 7 + attempt) % 26)
             name = f"{first} {middle_initial}. {last}"
 
-            # Check exact and fuzzy similarity to prevent accidental links
             if name in self.used_directors:
                 continue
             if any(
@@ -51,16 +47,16 @@ class EntityRegistryBuilder:
             self.used_directors.add(name)
             return name
 
-        # Fallback with deterministic numeric salt if name pool exhausts
-        name = f"{self.fake.first_name()} {self.fake.last_name()} {len(self.used_directors) + 1}"
+        # Deterministic fallback with salt if name pool is exhausted
+        idx = len(self.used_directors) + 1
+        name = f"{self.fake.first_name()} {chr(65 + idx % 26)}. {self.fake.last_name()} ({idx})"
         self.used_directors.add(name)
         return name
 
     def get_unique_address(self) -> str:
-        # Structured with unique building, sector, and 6-digit postal code to prevent fuzzy overlaps
         idx = len(self.used_addresses) + 1
         city = self.fake.city()
-        addr = f"Unit {idx * 17 % 899 + 100}, Sector {idx % 90 + 10}, {city} - {500000 + idx}"
+        addr = f"Unit {idx * 19 % 899 + 100}, Sector {idx % 80 + 10}, {city} - {500000 + idx}"
         self.used_addresses.add(addr)
         return addr
 
@@ -140,7 +136,7 @@ class EntityRegistryBuilder:
         return entities
 
 
-# Module-level singletons for clean imports
+# Module-level singletons
 _builder = EntityRegistryBuilder(seed=GLOBAL_SEED)
 
 
@@ -154,6 +150,7 @@ def inject_shell_cluster(cluster_id: str, size: int = 4) -> Tuple[List[Dict], Di
     return _builder.inject_shell_cluster(cluster_id, size)
 
 
-def reset_registry_builder(seed: int = GLOBAL_SEED):
+def reset_registry_builder(seed: int = GLOBAL_SEED) -> EntityRegistryBuilder:
     global _builder
     _builder = EntityRegistryBuilder(seed=seed)
+    return _builder

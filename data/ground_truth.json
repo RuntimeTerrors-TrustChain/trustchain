@@ -3,7 +3,7 @@
     {
       "cluster_id": "CLUSTER-01",
       "shared_director": "Ahana  G. Kapadia",
-      "shared_address": "Unit 359, Sector 41, Mirzapur - 500121",
+      "shared_address": "Unit 601, Sector 51, Mirzapur - 500121",
       "members": [
         "VEND-4990",
         "VEND-4394",
@@ -14,7 +14,7 @@
     {
       "cluster_id": "CLUSTER-02",
       "shared_director": "Vritika N. Subramaniam",
-      "shared_address": "Unit 376, Sector 42, Giridih - 500122",
+      "shared_address": "Unit 620, Sector 52, Giridih - 500122",
       "members": [
         "VEND-9254",
         "VEND-9543",
@@ -25,12 +25,23 @@
     {
       "cluster_id": "CLUSTER-03",
       "shared_director": "Raghav U. Ratta",
-      "shared_address": "Unit 393, Sector 43, Eluru - 500123",
+      "shared_address": "Unit 639, Sector 53, Eluru - 500123",
       "members": [
         "VEND-7532",
         "VEND-5176",
         "VEND-2398",
         "VEND-3131"
+      ]
+    },
+    {
+      "cluster_id": "CLUSTER-HELD-OUT",
+      "shared_director": "Gatik B. Jha",
+      "shared_address": "Unit 658, Sector 54, Bhusawal - 500124",
+      "members": [
+        "VEND-2882",
+        "VEND-1430",
+        "VEND-5477",
+        "VEND-3347"
       ]
     }
   ],
@@ -83,7 +94,7 @@
     {
       "cluster_id": "CLUSTER-HELD-OUT",
       "shared_director": "Gatik B. Jha",
-      "shared_address": "Unit 410, Sector 44, Bhusawal - 500124",
+      "shared_address": "Unit 658, Sector 54, Bhusawal - 500124",
       "members": [
         "VEND-2882",
         "VEND-1430",
