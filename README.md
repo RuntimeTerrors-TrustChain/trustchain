@@ -118,8 +118,8 @@ Evaluated on our synthetic commercial dataset with hidden ground truth (`data/gr
 📊 TRUSTCHAIN MULTI-LAYER BENCHMARK EVALUATION RESULTS
 =================================================================
 1. GRAPH-ONLY ENGINE BENCHMARK:
-   TP: 12 | FP: 1 | TN: 118 | FN: 1
-   Recall: 92.3% | Precision: 92.3% | F1: 92.3%
+   TP: 12 | FP: 0 | TN: 119 | FN: 1
+   Recall: 92.3% | Precision: 100.0% | F1: 96.0%
 
 2. DOCUMENT-ONLY FORENSICS BENCHMARK:
    TP: 3 | FP: 0 | TN: 119 | FN: 10
@@ -128,11 +128,11 @@ Evaluated on our synthetic commercial dataset with hidden ground truth (`data/gr
 =================================================================
 🏆 3. COMBINED RISK FUSION BENCHMARK (LAYER C)
 =================================================================
-TP: 13 | FP: 1 | TN: 118 | FN: 0
-🎯 Accuracy : 99.24%
+TP: 13 | FP: 0 | TN: 119 | FN: 0
+🎯 Accuracy : 100.00%
 🔍 Recall   : 100.00% (Catches both document & syndicate fraud)
-⚖️  Precision: 92.86%
-🏆 F1-Score : 96.30%
+⚖️  Precision: 100.00%
+🏆 F1-Score : 100.00%
 
 =================================================================
 🛡️  4. HELD-OUT TEST CASES (Unseen Seed Evaluation)

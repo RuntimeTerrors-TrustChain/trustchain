@@ -2,62 +2,62 @@
   "shell_clusters": [
     {
       "cluster_id": "CLUSTER-01",
-      "shared_director": "Bhavin Ganguly",
-      "shared_address": "H.No. 387, Borde Circle, Madurai 270790",
+      "shared_director": "Ahana  G. Kapadia",
+      "shared_address": "Unit 359, Sector 41, Mirzapur - 500121",
       "members": [
-        "VEND-4613",
-        "VEND-7801",
-        "VEND-8798",
-        "VEND-4144"
+        "VEND-4990",
+        "VEND-4394",
+        "VEND-1046",
+        "VEND-3858"
       ]
     },
     {
       "cluster_id": "CLUSTER-02",
-      "shared_director": "Lakshay Kalla",
-      "shared_address": "70/10, Chakrabarti Circle, Bhopal 811379",
+      "shared_director": "Vritika N. Subramaniam",
+      "shared_address": "Unit 376, Sector 42, Giridih - 500122",
       "members": [
-        "VEND-8936",
-        "VEND-3236",
-        "VEND-8757",
-        "VEND-9261"
+        "VEND-9254",
+        "VEND-9543",
+        "VEND-7580",
+        "VEND-2204"
       ]
     },
     {
       "cluster_id": "CLUSTER-03",
-      "shared_director": "Ishaan Sarraf",
-      "shared_address": "72, Chanda Marg, Madhyamgram-165804",
+      "shared_director": "Raghav U. Ratta",
+      "shared_address": "Unit 393, Sector 43, Eluru - 500123",
       "members": [
-        "VEND-6989",
-        "VEND-7929",
-        "VEND-7400",
-        "VEND-1351"
+        "VEND-7532",
+        "VEND-5176",
+        "VEND-2398",
+        "VEND-3131"
       ]
     }
   ],
   "circular_chains": [
     {
       "cycle_path": [
-        "VEND-4613",
-        "VEND-7801",
-        "VEND-8798",
-        "VEND-4613"
+        "VEND-4990",
+        "VEND-4394",
+        "VEND-1046",
+        "VEND-4990"
       ],
       "cycle_amount": 350000.0
     },
     {
       "cycle_path": [
-        "VEND-8936",
-        "VEND-3236",
-        "VEND-8757",
-        "VEND-8936"
+        "VEND-9254",
+        "VEND-9543",
+        "VEND-7580",
+        "VEND-9254"
       ],
       "cycle_amount": 180000.0
     }
   ],
   "structuring_cases": [
     {
-      "sender": "VEND-6989",
-      "receiver": "VEND-7929",
+      "sender": "VEND-7532",
+      "receiver": "VEND-5176",
       "count": 4,
       "threshold": 50000.0
     }
@@ -65,30 +65,30 @@
   "tampered_documents": [
     {
       "document_id": "DOC-201",
-      "entity_id": "VEND-9238",
+      "entity_id": "VEND-6925",
       "scenario": "tamper_only"
     },
     {
       "document_id": "DOC-401",
-      "entity_id": "VEND-4613",
+      "entity_id": "VEND-4990",
       "scenario": "shell_and_tamper"
     },
     {
       "document_id": "DOC-501",
-      "entity_id": "VEND-8936",
+      "entity_id": "VEND-9254",
       "scenario": "cycle_and_metadata"
     }
   ],
   "held_out_cases": [
     {
       "cluster_id": "CLUSTER-HELD-OUT",
-      "shared_director": "Vritika De",
-      "shared_address": "H.No. 40, Goda Street, Sirsa-928422",
+      "shared_director": "Gatik B. Jha",
+      "shared_address": "Unit 410, Sector 44, Bhusawal - 500124",
       "members": [
-        "VEND-1568",
-        "VEND-5842",
-        "VEND-6347",
-        "VEND-1918"
+        "VEND-2882",
+        "VEND-1430",
+        "VEND-5477",
+        "VEND-3347"
       ]
     }
   ]
