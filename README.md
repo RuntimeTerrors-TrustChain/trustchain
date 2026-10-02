@@ -1,4 +1,3 @@
-
 ---
 
 # 🛡️ TrustChain — Procurement & Vendor Fraud Verification System
@@ -234,9 +233,14 @@ trustchain/
 
 ## ⚡ Quickstart Guide
 
+### Prerequisites
+* **Git** installed.
+* **Python 3.10, 3.11 or 3.12** installed (check with `python --version`).
+* A **GitHub account with access** to this repository. It is private inside the `RuntimeTerrors-TrustChain` organization, so you must be a member or collaborator and signed in to GitHub, otherwise cloning shows a "not found" error.
+
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/kovidsharma27/trustchain.git
+git clone https://github.com/RuntimeTerrors-TrustChain/trustchain.git
 cd trustchain
 ```
 
@@ -253,6 +257,7 @@ venv\Scripts\activate.bat
 # Linux / macOS:
 source venv/bin/activate
 ```
+> **PowerShell tip:** if activation is blocked with a "scripts is disabled" error, run `Set-ExecutionPolicy -Scope Process Bypass` and activate again.
 
 ### 3. Install Dependencies
 ```bash
@@ -264,11 +269,13 @@ pip install -r requirements.txt
 ```bash
 python -m generator.run_generator
 ```
+> **Required before first run:** the generated files in `data/` are not stored in Git. Skipping this step makes the server crash with `FileNotFoundError: data/raw/entities.json`.
 
 ### 5. Run the Automated Test Suite
 ```bash
 pytest -q
 ```
+Expected result: all tests pass (`13 passed`).
 
 ### 6. Start the FastAPI Server
 ```bash
