@@ -26,7 +26,6 @@ body {
     overflow: hidden;
 }
 
-/* Header */
 header {
     height: 60px;
     background: var(--panel-bg);
@@ -34,11 +33,11 @@ header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 24px;
+    padding: 0 20px;
 }
 
 .logo {
-    font-size: 1.25rem;
+    font-size: 1.2rem;
     font-weight: 700;
     color: var(--accent);
     display: flex;
@@ -47,9 +46,9 @@ header {
 }
 
 .badge-tech {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     background: #0369a1;
-    padding: 4px 10px;
+    padding: 4px 8px;
     border-radius: 9999px;
     color: #e0f2fe;
 }
@@ -58,9 +57,9 @@ header {
     background: #0284c7;
     color: #fff;
     border: none;
-    padding: 6px 14px;
+    padding: 6px 12px;
     border-radius: 6px;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s;
@@ -70,13 +69,67 @@ header {
     background: #0369a1;
 }
 
-/* 3-Column Dashboard Grid */
+/* Toggle Switch */
+.switch-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #cbd5e1;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 38px;
+    height: 20px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #475569;
+    transition: .3s;
+    border-radius: 20px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+}
+
+input:checked+.slider {
+    background-color: #ef4444;
+}
+
+input:checked+.slider:before {
+    transform: translateX(18px);
+}
+
 main {
     flex: 1;
     display: grid;
-    grid-template-columns: 320px 1fr 400px;
-    gap: 16px;
-    padding: 16px;
+    grid-template-columns: 300px 1fr 380px;
+    gap: 14px;
+    padding: 14px;
     height: calc(100vh - 60px);
 }
 
@@ -87,22 +140,22 @@ main {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    position: relative;
 }
 
 .panel-header {
-    padding: 14px 16px;
+    padding: 12px 14px;
     background: rgba(255, 255, 255, 0.02);
     border-bottom: 1px solid var(--border-color);
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-/* Vendor Registry Panel */
 .search-box {
-    padding: 12px;
+    padding: 10px;
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -110,10 +163,11 @@ main {
     width: 100%;
     background: #0f172a;
     border: 1px solid var(--border-color);
-    padding: 8px 12px;
+    padding: 7px 10px;
     border-radius: 6px;
     color: #fff;
     outline: none;
+    font-size: 0.85rem;
 }
 
 .vendor-list {
@@ -122,7 +176,7 @@ main {
 }
 
 .vendor-card {
-    padding: 12px 16px;
+    padding: 10px 14px;
     border-bottom: 1px solid #334155;
     cursor: pointer;
     transition: background 0.15s;
@@ -139,18 +193,17 @@ main {
 
 .vendor-card .title {
     font-weight: 600;
-    font-size: 0.88rem;
-    margin-bottom: 4px;
+    font-size: 0.84rem;
+    margin-bottom: 3px;
 }
 
 .vendor-card .meta {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     color: var(--text-muted);
     display: flex;
     justify-content: space-between;
 }
 
-/* Graph Panel */
 #network {
     flex: 1;
     width: 100%;
@@ -158,35 +211,183 @@ main {
     background: #090d16;
 }
 
-/* Dossier Panel */
+/* Focus Mode Floating Bar */
+.focus-chip {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid var(--accent);
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    z-index: 50;
+}
+
+.btn-reset-focus {
+    background: none;
+    border: 1px solid var(--text-muted);
+    color: var(--text-muted);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.68rem;
+    cursor: pointer;
+}
+
+.btn-reset-focus:hover {
+    color: #fff;
+    border-color: #fff;
+}
+
+/* Live Tender Stream Overlay with Scrollbar */
+.stream-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.96);
+    z-index: 40;
+    display: none;
+    flex-direction: column;
+    padding: 14px;
+    gap: 8px;
+}
+
+.stream-panel.open {
+    display: flex;
+}
+
+.stream-table-container {
+    flex: 1;
+    overflow-y: auto;
+    max-height: calc(100% - 130px);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: #090d16;
+}
+
+.stream-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+
+.stream-table th,
+.stream-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #1e293b;
+    text-align: left;
+}
+
+.stream-table th {
+    position: sticky;
+    top: 0;
+    background: #0f172a;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    z-index: 2;
+    border-bottom: 2px solid var(--border-color);
+}
+
+/* Sleek Scrollbar */
+.stream-table-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.stream-table-container::-webkit-scrollbar-track {
+    background: #090d16;
+}
+
+.stream-table-container::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 4px;
+}
+
+.stream-table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+}
+
+/* Interception Alert Card */
+.alert-card {
+    margin-top: auto;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid var(--danger);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+    animation: pulse-border 1.5s infinite;
+}
+
+@keyframes pulse-border {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
+
 .dossier-body {
     flex: 1;
     overflow-y: auto;
-    padding: 16px;
+    padding: 14px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
+}
+
+.btn-export-dossier {
+    width: 100%;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-export-dossier:hover {
+    background: #1d4ed8;
 }
 
 .score-card {
     background: #0f172a;
     border-radius: 8px;
-    padding: 16px;
+    padding: 12px;
     text-align: center;
     border: 1px solid var(--border-color);
 }
 
 .score-number {
-    font-size: 2.5rem;
+    font-size: 2.2rem;
     font-weight: 800;
-    margin: 4px 0;
+    margin: 2px 0;
 }
 
 .band-tag {
     display: inline-block;
-    padding: 4px 12px;
+    padding: 3px 10px;
     border-radius: 4px;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
 }
@@ -214,32 +415,30 @@ main {
     background: rgba(56, 189, 248, 0.1);
     border: 1px solid var(--accent);
     color: var(--accent);
-    padding: 8px 12px;
+    padding: 7px;
     border-radius: 6px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
-    margin-top: 10px;
 }
 
 .btn-inspect:hover {
     background: rgba(56, 189, 248, 0.2);
 }
 
-/* Reasons Audit Trail */
 .reasons-box {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 .reason-pill {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     background: #0f172a;
     border: 1px solid var(--border-color);
-    padding: 10px 12px;
+    padding: 8px 10px;
     border-radius: 6px;
-    line-height: 1.4;
+    line-height: 1.35;
 }
 
 .reason-pill.critical {
@@ -250,7 +449,6 @@ main {
     border-left: 4px solid var(--warning);
 }
 
-/* Modal Backdrop */
 .modal-backdrop {
     position: fixed;
     top: 0;
@@ -273,17 +471,16 @@ main {
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
     width: 90%;
-    max-width: 950px;
+    max-width: 900px;
     max-height: 90vh;
     border-radius: 10px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
 }
 
 .modal-header {
-    padding: 16px 20px;
+    padding: 14px 18px;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
@@ -294,7 +491,7 @@ main {
     background: none;
     border: none;
     color: var(--text-muted);
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     cursor: pointer;
 }
 
@@ -303,38 +500,65 @@ main {
 }
 
 .modal-body {
-    padding: 20px;
+    padding: 16px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 14px;
 }
 
 .comparison-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    gap: 14px;
 }
 
 .img-panel {
     background: #0f172a;
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    padding: 10px;
+    padding: 8px;
     text-align: center;
 }
 
 .img-panel img {
     max-width: 100%;
     height: auto;
-    max-height: 420px;
+    max-height: 380px;
     border-radius: 4px;
     object-fit: contain;
 }
 
 .img-label {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    margin-top: 8px;
+    margin-top: 6px;
     color: var(--text-muted);
+}
+
+/* PDF Dossier Viewer Modal */
+.pdf-modal-content {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    width: 92%;
+    max-width: 1050px;
+    height: 92vh;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+}
+
+.pdf-frame-container {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    background: #1e293b;
+}
+
+.pdf-frame-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
 }

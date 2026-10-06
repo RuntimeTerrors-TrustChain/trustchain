@@ -1,10 +1,12 @@
+
 import shutil
 import warnings
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 warnings.filterwarnings("ignore")
 
@@ -22,7 +24,8 @@ from backend.services import (
     analyze_vendor_document,
     analyze_vendor_graph,
     get_full_vendor_risk_assessment,
-    get_vis_graph_data
+    get_vis_graph_data,
+    generate_audit_dossier_pdf
 )
 
 app = FastAPI(
@@ -71,7 +74,7 @@ async def upload_and_analyze_document(
     temp_path = DOCS_DIR / f"upload_{file.filename}"
     with open(temp_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-        
+
     result = analyze_vendor_document(temp_path, entity_id)
     return result
 
@@ -91,13 +94,24 @@ def get_risk_score(entity_id: str, doc_name: Optional[str] = None):
         raise HTTPException(status_code=404, detail=f"Entity '{entity_id}' not found in registry")
     return get_full_vendor_risk_assessment(entity_id, doc_name)
 
-# --- 5. Frontend Interactive Network Graph ---
+# --- 5. Export / View Official PDF Dossier (Inline Mode) ---
+@app.get("/export-dossier/{entity_id}")
+def export_dossier(entity_id: str):
+    entity = get_entity_by_id(entity_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail=f"Entity '{entity_id}' not found in registry")
+    pdf_path = generate_audit_dossier_pdf(entity_id)
+    return FileResponse(
+        pdf_path, 
+        media_type="application/pdf", 
+        content_disposition_type="inline"
+    )
+
+# --- 6. Frontend Interactive Network Graph ---
 @app.get("/graph", response_model=GraphVisualizationResponse)
 def get_graph():
     return get_vis_graph_data()
 
-# --- 6. Mount Document Images Media Route ---
+# --- 7. Static Media Mounts ---
 app.mount("/docs-media", StaticFiles(directory=DOCS_DIR), name="docs-media")
-
-# --- 7. Mount Static Frontend (MUST BE LAST) ---
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

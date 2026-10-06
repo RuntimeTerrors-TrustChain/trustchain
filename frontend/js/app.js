@@ -1,6 +1,8 @@
+
 let allEntities = [];
 let currentSelectedEntity = null;
 let currentDossierData = null;
+let streamInterval = null;
 
 async function initDashboard() {
     try {
@@ -12,10 +14,8 @@ async function initDashboard() {
         const graphData = await graphRes.json();
         renderNetworkGraph(graphData, selectVendor);
 
-        // Auto-select injected fraud case
-        const shellVendor = allEntities.find(e => e.entity_id.includes('SHELL'));
-        if (shellVendor) {
-            selectVendor(shellVendor.entity_id);
+        if (allEntities.length > 0) {
+            selectVendor(allEntities[0].entity_id);
         }
     } catch (err) {
         console.error('Failed to initialize dashboard:', err);
@@ -27,7 +27,6 @@ function renderEntityList(entities) {
     container.innerHTML = '';
 
     entities.forEach(e => {
-        const isFraudPlanted = e.entity_id.includes('SHELL');
         const card = document.createElement('div');
         card.className = 'vendor-card';
         card.id = `card-${e.entity_id}`;
@@ -35,9 +34,7 @@ function renderEntityList(entities) {
       <div class="title">${e.name}</div>
       <div class="meta">
         <span>${e.entity_id}</span>
-        <span style="color: ${isFraudPlanted ? '#ef4444' : '#10b981'}; font-weight:600;">
-          ${isFraudPlanted ? 'SUSPECT' : 'CLEAN'}
-        </span>
+        <span style="color: #10b981; font-weight:600;">ACTIVE</span>
       </div>
     `;
         card.onclick = () => selectVendor(e.entity_id);
@@ -76,15 +73,9 @@ function renderDossier(data) {
     document.getElementById('baseScore').innerText = `${data.base_score} / 100`;
     document.getElementById('escalationScore').innerText = `+${data.escalation_applied}`;
 
-    // Toggle Inspect Button if Heatmap exists
     const inspectBtn = document.getElementById('inspectDocBtn');
-    if (data.heatmap_image) {
-        inspectBtn.style.display = 'block';
-    } else {
-        inspectBtn.style.display = 'none';
-    }
+    inspectBtn.style.display = data.heatmap_image ? 'block' : 'none';
 
-    // Render Reasons
     const reasonsContainer = document.getElementById('reasonsList');
     reasonsContainer.innerHTML = '';
 
@@ -92,7 +83,7 @@ function renderDossier(data) {
         const pill = document.createElement('div');
         pill.className = 'reason-pill';
         if (r.includes('CRITICAL') || r.includes('ELA')) pill.classList.add('critical');
-        if (r.includes('CROSS-LAYER') || r.includes('Escalation')) pill.classList.add('escalation');
+        if (r.includes('CROSS-LAYER') || r.includes('Escalation') || r.includes('NETWORK')) pill.classList.add('escalation');
         pill.innerText = r;
         reasonsContainer.appendChild(pill);
     });
@@ -110,11 +101,35 @@ function closeForensicsModal() {
     document.getElementById('forensicsModal').classList.remove('open');
 }
 
+function openPdfModal() {
+    if (currentSelectedEntity) {
+        const frame = document.getElementById('pdfViewerFrame');
+        frame.src = `/export-dossier/${currentSelectedEntity}`;
+        document.getElementById('pdfModal').classList.add('open');
+    }
+}
+
+function closePdfModal() {
+    document.getElementById('pdfViewerFrame').src = '';
+    document.getElementById('pdfModal').classList.remove('open');
+}
+
+function downloadPdfDirect() {
+    if (currentSelectedEntity) {
+        const link = document.createElement('a');
+        link.href = `/export-dossier/${currentSelectedEntity}`;
+        link.download = `Audit_Dossier_${currentSelectedEntity}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+}
+
 async function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    const activeEntityId = currentSelectedEntity || 'VEND-SHELL-CLUSTER-01-1';
+    const activeEntityId = currentSelectedEntity || allEntities[0]?.entity_id || 'VEND-1001';
     const formData = new FormData();
     formData.append('file', file);
 
@@ -125,15 +140,77 @@ async function handleFileUpload(event) {
         });
         const docResult = await res.json();
 
-        // Refresh full risk assessment
         selectVendor(activeEntityId);
-        alert(`Document "${file.name}" analyzed successfully! Tamper Score: ${docResult.authenticity_score}`);
+        alert(`Document "${file.name}" analyzed successfully! Forensic Score: ${docResult.authenticity_score}`);
     } catch (err) {
-        alert('Failed to upload document');
+        alert('Failed to upload and analyze document');
     }
 }
 
-// Search Filter
+function toggleTenderStream(event) {
+    const isChecked = event.target.checked;
+    const streamPanel = document.getElementById('streamPanel');
+
+    if (isChecked) {
+        streamPanel.classList.add('open');
+        startSimulatedStream();
+    } else {
+        streamPanel.classList.remove('open');
+        clearInterval(streamInterval);
+    }
+}
+
+function startSimulatedStream() {
+    const tbody = document.getElementById('streamTbody');
+    tbody.innerHTML = '';
+    document.getElementById('alertCard').style.display = 'none';
+    let counter = 0;
+
+    const cleanSequence = [allEntities[0], allEntities[1], allEntities[2], allEntities[3]].filter(Boolean);
+    const cartelTarget = allEntities.find(e => e.entity_id === 'VEND-4990') || allEntities[allEntities.length - 1];
+
+    streamInterval = setInterval(async () => {
+        counter++;
+        let targetEntity;
+        if (counter === 3 && cartelTarget) {
+            targetEntity = cartelTarget;
+        } else {
+            targetEntity = cleanSequence[(counter - 1) % cleanSequence.length] || allEntities[0];
+        }
+
+        if (!targetEntity) return;
+
+        const timeStr = new Date().toLocaleTimeString();
+        const bidAmount = (12.5 + counter * 2.1).toFixed(1);
+        const tenderId = `GEM/B/${4468 + counter}`;
+
+        const res = await fetch(`/risk-score/${targetEntity.entity_id}`);
+        const data = await res.json();
+        const isHigh = data.risk_band === 'HIGH';
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+      <td>${timeStr}</td>
+      <td><b>${targetEntity.name}</b> (${targetEntity.entity_id})</td>
+      <td>${tenderId}</td>
+      <td>₹${bidAmount}L</td>
+      <td><span class="band-tag band-${data.risk_band}">${data.risk_band}</span></td>
+    `;
+        tbody.prepend(row);
+
+        if (isHigh) {
+            document.getElementById('alertCard').style.display = 'flex';
+            document.getElementById('alertVendorName').innerText = `${targetEntity.name} (${targetEntity.entity_id})`;
+            document.getElementById('alertTenderId').innerText = `Bid ${tenderId} held before award`;
+            document.getElementById('btnAlertDossier').onclick = () => {
+                document.getElementById('streamToggle').checked = false;
+                toggleTenderStream({ target: { checked: false } });
+                selectVendor(targetEntity.entity_id);
+            };
+        }
+    }, 2800);
+}
+
 document.getElementById('searchInput').addEventListener('input', e => {
     const query = e.target.value.toLowerCase();
     const filtered = allEntities.filter(
@@ -142,4 +219,9 @@ document.getElementById('searchInput').addEventListener('input', e => {
     renderEntityList(filtered);
 });
 
-window.onload = initDashboard;
+// Auto-run dashboard initialization on page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDashboard);
+} else {
+    initDashboard();
+}
