@@ -1,4 +1,7 @@
+import csv
+import io
 import json
+import hashlib
 import matplotlib
 
 matplotlib.use("Agg")
@@ -8,6 +11,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from xml.sax.saxutils import escape
+from rapidfuzz import fuzz
 
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import (
@@ -27,11 +31,6 @@ from config import RAW_DATA_DIR, DOCS_DIR, DOCUMENTS_MAP_FILE
 from modules.graph.engine import GraphIntelligenceEngine
 from modules.forensics.engine import DocumentForensicsEngine
 from modules.scoring.fusion import compute_combined_risk_score
-
-import csv
-import io
-import hashlib
-from rapidfuzz import fuzz
 
 graph_engine = GraphIntelligenceEngine()
 forensics_engine = DocumentForensicsEngine()
@@ -66,10 +65,9 @@ def analyze_vendor_document(
     if entity_id:
         with open(RAW_DATA_DIR / "transactions.json", "r", encoding="utf-8") as f:
             txns = json.load(f)
+        # Benford analysis applies strictly to invoices ISSUED by the vendor (from_entity)
         amounts = [
-            t.get("amount", 0.0)
-            for t in txns
-            if t.get("from_entity") == entity_id or t.get("to_entity") == entity_id
+            t.get("amount", 0.0) for t in txns if t.get("from_entity") == entity_id
         ]
 
     return forensics_engine.analyze_document(
@@ -102,10 +100,17 @@ def get_full_vendor_risk_assessment(
 
     mapped_docs = get_entity_documents(entity_id)
     target_doc = None
+
     if document_name:
-        target_doc = DOCS_DIR / document_name
+        # Path traversal guard: strictly resolve inside DOCS_DIR
+        clean_name = Path(document_name).name
+        candidate = (DOCS_DIR / clean_name).resolve()
+        if candidate.parent == DOCS_DIR.resolve() and candidate.is_file():
+            target_doc = candidate
     elif mapped_docs and mapped_docs[0].get("filename"):
-        target_doc = DOCS_DIR / mapped_docs[0]["filename"]
+        candidate = DOCS_DIR / mapped_docs[0]["filename"]
+        if candidate.is_file():
+            target_doc = candidate
 
     if target_doc and target_doc.is_file():
         doc_res = analyze_vendor_document(target_doc, entity_id)
@@ -116,7 +121,6 @@ def get_full_vendor_risk_assessment(
     fused["ela_hotspots"] = doc_res.get("ela_hotspots", [])
     fused["benfords_deviation"] = doc_res.get("benfords_deviation", 0.0)
 
-    # Forward all underlying engine keys safely
     fused["authenticity_score"] = doc_res.get("authenticity_score", 0.0)
     fused["metadata_flags"] = doc_res.get("metadata_flags", [])
     fused["cluster_id"] = graph_res.get("cluster_id")
@@ -155,7 +159,6 @@ def get_vis_graph_data() -> Dict[str, Any]:
             }
         )
 
-    # 1. Corporate Attribute Edges (Red Cartel Links)
     edges = []
     seen_pairs = set()
 
@@ -171,7 +174,6 @@ def get_vis_graph_data() -> Dict[str, Any]:
             }
         )
 
-    # 2. Add Clean Commercial Trade Links across Green Nodes (No duplicate clutter)
     with open(RAW_DATA_DIR / "transactions.json", "r", encoding="utf-8") as f:
         txns = json.load(f)
 
@@ -180,9 +182,7 @@ def get_vis_graph_data() -> Dict[str, Any]:
         v = t.get("to_entity")
         if u and v and u != v:
             pair = tuple(sorted([u, v]))
-            if (
-                pair not in seen_pairs and len(seen_pairs) < 220
-            ):  # Curated limit for pristine visual density
+            if pair not in seen_pairs and len(seen_pairs) < 220:
                 seen_pairs.add(pair)
                 edges.append(
                     {
@@ -197,7 +197,6 @@ def get_vis_graph_data() -> Dict[str, Any]:
 
 
 def _draw_real_cluster_thumbnail(entity_id: str, path: Path):
-    """Draws a real NetworkX subgraph showing actual cluster geometry and inspected node."""
     G = graph_engine.G
     clusters = getattr(graph_engine, "shell_clusters", [])
     cl = next((c for c in clusters if entity_id in c.get("members", [])), None)
@@ -243,7 +242,6 @@ def _draw_real_cluster_thumbnail(entity_id: str, path: Path):
 
 
 def generate_audit_dossier_pdf(entity_id: str) -> Path:
-    """Generates an auditable 2-page investigation PDF report."""
     assessment = get_full_vendor_risk_assessment(entity_id)
     entity = get_entity_by_id(entity_id) or {
         "name": "Unknown Entity",
@@ -266,7 +264,6 @@ def generate_audit_dossier_pdf(entity_id: str) -> Path:
     styles = getSampleStyleSheet()
     story = []
 
-    # Title Header
     header_style = ParagraphStyle(
         name="Header",
         fontName="Helvetica-Bold",
@@ -291,7 +288,6 @@ def generate_audit_dossier_pdf(entity_id: str) -> Path:
     )
     story.append(Spacer(1, 12))
 
-    # Vendor Profile Table (plain strings, so no XML escaping here)
     vendor_data = [
         ["Target Vendor:", str(entity.get("name", "")), "Vendor ID:", str(entity_id)],
         [
@@ -324,7 +320,6 @@ def generate_audit_dossier_pdf(entity_id: str) -> Path:
     story.append(t_vend)
     story.append(Spacer(1, 10))
 
-    # Risk Score Bar
     risk_band = assessment.get("risk_band", "LOW")
     score_color = (
         colors.HexColor("#EF4444")
@@ -357,7 +352,6 @@ def generate_audit_dossier_pdf(entity_id: str) -> Path:
     story.append(t_score)
     story.append(Spacer(1, 12))
 
-    # Real Subgraph & ELA Side-by-Side Images
     story.append(
         Paragraph("<b>FORENSIC &amp; NETWORK TOPOLOGY EVIDENCE:</b>", styles["Normal"])
     )
@@ -400,7 +394,6 @@ def generate_audit_dossier_pdf(entity_id: str) -> Path:
 
     story.append(Spacer(1, 10))
 
-    # Primary Findings
     story.append(
         Paragraph("<b>AUDIT TRAIL &amp; DETECTION FINDINGS:</b>", styles["Normal"])
     )
@@ -412,7 +405,6 @@ def generate_audit_dossier_pdf(entity_id: str) -> Path:
 
     story.append(PageBreak())
 
-    # PAGE 2: Statutory Compliance Breakdown
     story.append(Paragraph("STATUTORY &amp; LEGAL INDICATORS ANALYSIS", header_style))
     story.append(Spacer(1, 4))
     story.append(
@@ -483,7 +475,6 @@ def generate_audit_dossier_pdf(entity_id: str) -> Path:
     story.append(t_legal)
     story.append(Spacer(1, 16))
 
-    # Recommended Action
     action_text = "<b>RECOMMENDED AUDIT ACTION:</b><br/>"
     if risk_band == "HIGH":
         action_text += "<font color='#B91C1C'><b>RECOMMEND HOLD PENDING HUMAN REVIEW:</b> Place temporary administrative hold on bid award. Flag applicant for priority manual review by the Tender Committee before financial disbursement.</font>"
@@ -514,7 +505,6 @@ def generate_audit_dossier_pdf(entity_id: str) -> Path:
     story.append(t_action)
     story.append(Spacer(1, 35))
 
-    # Neutral Review Signatures
     sig_data = [
         [
             "____________________________________",
@@ -534,7 +524,6 @@ def generate_audit_dossier_pdf(entity_id: str) -> Path:
         )
     )
     story.append(KeepTogether(t_sig))
-
     story.append(Spacer(1, 15))
     story.append(
         Paragraph(
@@ -555,7 +544,6 @@ def generate_audit_dossier_pdf(entity_id: str) -> Path:
 
 
 def generate_sample_bidding_csv() -> str:
-    """Generates a realistic sample GeM tender bidding sheet with a planted collusion ring."""
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(
@@ -571,7 +559,6 @@ def generate_sample_bidding_csv() -> str:
             "quoted_amount_inr",
         ]
     )
-    # Planted collusion: Bidder 1 & Bidder 3 secretly share Director Rajesh Sharma (DIN: 08912345) and Okhla address!
     writer.writerow(
         [
             "GEM/2026/B/8941",
@@ -628,10 +615,6 @@ def generate_sample_bidding_csv() -> str:
 
 
 def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
-    """
-    Parses uploaded tender bids, runs regulatory syntax checks, hashes bank data,
-    adds nodes into graph memory, and performs intra-cohort collusion screening.
-    """
     f = io.StringIO(csv_content.strip())
     reader = csv.DictReader(f)
 
@@ -650,7 +633,6 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
     syntax_errors = []
     parsed_bidders = []
 
-    # 1. Pre-Flight Syntax & Format Validation
     for idx, row in enumerate(rows, 1):
         name = row.get("company_name", f"Bidder {idx}").strip()
         gstin = row.get("gstin", "").strip()
@@ -662,20 +644,19 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
         address = row.get("registered_address", "").strip()
         bank = row.get("bank_account", "").strip()
 
-        # Validate GSTIN structure (15 chars, 'Z' at pos 13)
         if gstin and (len(gstin) != 15 or gstin[13] != "Z"):
             syntax_errors.append(
                 f"Row {idx} ({name}): Invalid GSTIN format '{gstin}' (must be 15 chars with 'Z' at 14th pos)"
             )
 
-        # Privacy-Preserving Bank Hashing (Salted SHA-256)
         bank_hash = (
             hashlib.sha256(f"TRUSTCHAIN_SALT_{bank}".encode()).hexdigest()[:12]
             if bank
             else f"HASH_{idx}"
         )
 
-        eid = f"BID-{idx:02d}-{name[:4].upper()}"
+        # Scoped unique entity ID preventing cross-tender collision
+        eid = f"BID-{tender_id.replace('/', '')[-4:]}-{idx:02d}-{name[:4].upper()}"
         parsed_bidders.append(
             {
                 "entity_id": eid,
@@ -689,7 +670,6 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
             }
         )
 
-        # Add temporary node to in-memory Graph
         graph_engine.G.add_node(
             eid,
             name=name,
@@ -699,7 +679,6 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
             bank_account=bank_hash,
         )
 
-    # 2. Intra-Cohort Collusion Screening (Bid-Rigging Analysis)
     collusion_flags = []
     n = len(parsed_bidders)
 
@@ -708,7 +687,6 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
         for j in range(i + 1, n):
             b2 = parsed_bidders[j]
 
-            # Check 1: Shared Director DIN
             shared_dins = set(b1["dins"]).intersection(set(b2["dins"]))
             if shared_dins:
                 val = list(shared_dins)[0]
@@ -729,7 +707,6 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
                     shared_value=val,
                 )
 
-            # Check 2: Shared Bank Account Hash
             if b1["bank_hash"] == b2["bank_hash"] and b1["bank_hash"] != "":
                 collusion_flags.append(
                     {
@@ -748,7 +725,6 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
                     shared_value="Common Bank",
                 )
 
-            # Check 3: Address Fuzzy Match (>88%)
             if b1["address"] and b2["address"]:
                 ratio = fuzz.token_sort_ratio(b1["address"], b2["address"])
                 if ratio >= 88.0:
@@ -769,11 +745,10 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
                         shared_value=b1["address"][:20],
                     )
 
-    is_collusive = len(collusion_flags) > 0
     return {
         "tender_id": tender_id,
         "bidders_count": len(parsed_bidders),
-        "collusion_detected": is_collusive,
+        "collusion_detected": len(collusion_flags) > 0,
         "collusion_flags": collusion_flags,
         "syntax_validation_errors": syntax_errors,
         "message": f"Screened {len(parsed_bidders)} bidders for {tender_id}. {len(collusion_flags)} collusion link(s) intercepted.",

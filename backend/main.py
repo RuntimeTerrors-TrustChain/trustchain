@@ -1,3 +1,4 @@
+import uuid
 import shutil
 import warnings
 from pathlib import Path
@@ -5,7 +6,7 @@ from typing import List, Optional
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 warnings.filterwarnings("ignore")
 
@@ -25,6 +26,8 @@ from backend.services import (
     get_full_vendor_risk_assessment,
     get_vis_graph_data,
     generate_audit_dossier_pdf,
+    generate_sample_bidding_csv,
+    ingest_and_screen_cohort_csv,
 )
 
 app = FastAPI(
@@ -40,6 +43,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+ALLOWED_UPLOAD_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
 
 
 @app.get("/api/health")
@@ -79,7 +84,15 @@ async def upload_and_analyze_document(
     entity_id: Optional[str] = Query(None, description="Optional associated vendor ID"),
     file: UploadFile = File(...),
 ):
-    temp_path = DOCS_DIR / f"upload_{file.filename}"
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in ALLOWED_UPLOAD_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type. Allowed: {ALLOWED_UPLOAD_EXTENSIONS}",
+        )
+
+    safe_name = f"upload_{uuid.uuid4().hex[:12]}{suffix}"
+    temp_path = DOCS_DIR / safe_name
     with open(temp_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
@@ -123,12 +136,7 @@ def export_dossier(entity_id: str):
     )
 
 
-from fastapi.responses import PlainTextResponse
-from backend.services import generate_sample_bidding_csv, ingest_and_screen_cohort_csv
-from fastapi.responses import Response
-
-
-# --- Cohort Ingestion Endpoints (Feature 4) ---
+# --- 6. Cohort Ingestion Endpoints ---
 @app.get("/sample-cohort-csv")
 def get_sample_csv():
     """Provides a downloadable sample tender bidding CSV file with a planted collusion ring."""
@@ -142,19 +150,19 @@ def get_sample_csv():
 
 @app.post("/ingest-cohort")
 async def ingest_cohort(file: UploadFile = File(...)):
-    """Ingests custom CSV tender bidding sheets, parses syntax, and runs in-memory collusion screening."""
+    """Ingests custom CSV tender bidding sheets and runs in-memory collusion screening."""
     content = await file.read()
     csv_str = content.decode("utf-8", errors="ignore")
     result = ingest_and_screen_cohort_csv(csv_str)
     return result
 
 
-# --- 6. Frontend Interactive Network Graph ---
+# --- 7. Frontend Interactive Network Graph ---
 @app.get("/graph", response_model=GraphVisualizationResponse)
 def get_graph():
     return get_vis_graph_data()
 
 
-# --- 7. Static Media Mounts ---
+# --- 8. Static Media Mounts ---
 app.mount("/docs-media", StaticFiles(directory=DOCS_DIR), name="docs-media")
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

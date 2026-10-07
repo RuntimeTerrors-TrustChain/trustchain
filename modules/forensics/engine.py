@@ -25,7 +25,9 @@ class DocumentForensicsEngine:
             heatmap_image = f"/docs-media/{heatmap_file}"
 
             significant_hotspots = [
-                h for h in raw_hotspots if h.get("intensity", 0) >= 0.20
+                h
+                for h in raw_hotspots
+                if h.get("intensity", 0) >= ELA_MIN_INTENSITY_THRESHOLD
             ]
             hotspots = significant_hotspots
 
@@ -45,13 +47,19 @@ class DocumentForensicsEngine:
                 reasons.extend(meta_res["reasons"])
 
         # 3. Benford's Law on vendor history (Per-vendor check)
-        benford_res = {"deviation": 0.0, "is_anomalous": False}
-        if vendor_historical_amounts and len(vendor_historical_amounts) >= 10:
+        benford_res = {
+            "deviation": 0.0,
+            "chi_square": 0.0,
+            "sample_size": 0,
+            "is_anomalous": False,
+        }
+        if vendor_historical_amounts:
             benford_res = benfords_law_score(vendor_historical_amounts)
             if benford_res["is_anomalous"]:
                 authenticity_score += 20.0
                 reasons.append(
-                    f"Vendor's historical invoices deviate from Benford's Law (deviation: {benford_res['deviation']})"
+                    f"Vendor's historical amounts deviate from Benford's Law "
+                    f"(chi-square {benford_res['chi_square']} over {benford_res['sample_size']} amounts)"
                 )
 
         return {
@@ -61,6 +69,7 @@ class DocumentForensicsEngine:
             "ela_hotspots": hotspots,
             "metadata_flags": metadata_flags,
             "benfords_deviation": benford_res["deviation"],
+            "benfords_chi2": benford_res["chi_square"],
             "original_image": (
                 f"/docs-media/{file_path.name}"
                 if file_path.suffix.lower() in [".jpg", ".jpeg", ".png"]

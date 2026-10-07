@@ -1,31 +1,44 @@
-import numpy as np
+import math
 from collections import Counter
-from typing import List, Dict, Any
-from config import BENFORD_MIN_SAMPLE_SIZE, BENFORD_ANOMALY_THRESHOLD
+from typing import List, Dict, Any, Optional
+from config import BENFORD_MIN_SAMPLE_SIZE, BENFORD_CHI2_CRITICAL
+
+
+def _leading_digit(x: float) -> Optional[int]:
+    """Leading significant digit via scientific notation (safe for tiny/huge floats)."""
+    if x is None or x <= 0 or not math.isfinite(x):
+        return None
+    return int(f"{float(x):.15e}"[0])
+
 
 def benfords_law_score(amounts: List[float]) -> Dict[str, Any]:
     """
-    Measures Chi-Square style deviation from Benford's Law: P(d) = log10(1 + 1/d).
-    Naturally occurring prices follow this curve; fabricated numbers are unnaturally flat.
+    First-digit Benford test using a true Pearson chi-square statistic:
+        chi2 = n * sum((obs_freq - exp_freq)^2 / exp_freq), df = 8
+    Compares against statutory critical value (26.12, p=0.001) to eliminate false alarms.
     """
-    leading_digits = [int(str(abs(a)).replace(".", "").lstrip("0")[0]) for a in amounts if a > 0]
-    
-    if len(leading_digits) < BENFORD_MIN_SAMPLE_SIZE:
-        return {"deviation": 0.0, "is_anomalous": False}
+    digits = [d for d in (_leading_digit(a) for a in amounts) if d]
+    n = len(digits)
 
-    observed = Counter(leading_digits)
-    n = len(leading_digits)
-    
-    expected = {d: np.log10(1 + 1 / d) for d in range(1, 10)}
-    
-    deviation = 0.0
-    for d in range(1, 10):
-        obs_freq = observed.get(d, 0) / n
-        deviation += ((obs_freq - expected[d]) ** 2) / expected[d]
+    if n < BENFORD_MIN_SAMPLE_SIZE:
+        return {
+            "deviation": 0.0,
+            "chi_square": 0.0,
+            "sample_size": n,
+            "is_anomalous": False,
+        }
 
-    is_anomalous = bool(deviation > BENFORD_ANOMALY_THRESHOLD)
+    observed = Counter(digits)
+    expected = {d: math.log10(1 + 1 / d) for d in range(1, 10)}
+    distance = sum(
+        ((observed.get(d, 0) / n) - expected[d]) ** 2 / expected[d]
+        for d in range(1, 10)
+    )
+    chi2 = n * distance
 
     return {
-        "deviation": round(float(deviation), 3),
-        "is_anomalous": is_anomalous
+        "deviation": round(float(distance), 3),
+        "chi_square": round(float(chi2), 2),
+        "sample_size": n,
+        "is_anomalous": bool(chi2 > BENFORD_CHI2_CRITICAL),
     }
