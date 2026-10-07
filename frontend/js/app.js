@@ -1,8 +1,18 @@
-
 let allEntities = [];
 let currentSelectedEntity = null;
 let currentDossierData = null;
 let streamInterval = null;
+
+// XSS Sanitizer Helper
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
 async function initDashboard() {
     try {
@@ -29,11 +39,11 @@ function renderEntityList(entities) {
     entities.forEach(e => {
         const card = document.createElement('div');
         card.className = 'vendor-card';
-        card.id = `card-${e.entity_id}`;
+        card.id = `card-${escapeHtml(e.entity_id)}`;
         card.innerHTML = `
-      <div class="title">${e.name}</div>
+      <div class="title">${escapeHtml(e.name)}</div>
       <div class="meta">
-        <span>${e.entity_id}</span>
+        <span>${escapeHtml(e.entity_id)}</span>
         <span style="color: #10b981; font-weight:600;">ACTIVE</span>
       </div>
     `;
@@ -60,15 +70,15 @@ async function selectVendor(entityId) {
 }
 
 function renderDossier(data) {
-    document.getElementById('dossierEntityId').innerText = data.entity_id;
+    document.getElementById('dossierEntityId').innerText = escapeHtml(data.entity_id);
     document.getElementById('finalScore').innerText = data.final_risk_score;
 
     const scoreColor = data.risk_band === 'HIGH' ? '#ef4444' : data.risk_band === 'MEDIUM' ? '#f59e0b' : '#10b981';
     document.getElementById('finalScore').style.color = scoreColor;
 
     const bandEl = document.getElementById('riskBand');
-    bandEl.className = `band-tag band-${data.risk_band}`;
-    bandEl.innerText = `${data.risk_band} RISK`;
+    bandEl.className = `band-tag band-${escapeHtml(data.risk_band)}`;
+    bandEl.innerText = `${escapeHtml(data.risk_band)} RISK`;
 
     document.getElementById('baseScore').innerText = `${data.base_score} / 100`;
     document.getElementById('escalationScore').innerText = `+${data.escalation_applied}`;
@@ -122,6 +132,75 @@ function downloadPdfDirect() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+    }
+}
+
+function openIngestModal() {
+    document.getElementById('ingestModal').classList.add('open');
+}
+
+function closeIngestModal() {
+    document.getElementById('ingestModal').classList.remove('open');
+}
+
+function downloadSampleCohortCSV() {
+    const link = document.createElement('a');
+    link.href = '/sample-cohort-csv';
+    link.setAttribute('download', 'sample_tender_bids.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+async function handleCohortCsvUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await fetch('/ingest-cohort', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+
+        const resultsArea = document.getElementById('cohortResultsArea');
+        const flagsList = document.getElementById('cohortFlagsList');
+        resultsArea.style.display = 'flex';
+        flagsList.innerHTML = '';
+
+        document.getElementById('cohortResultTitle').innerHTML = `
+      <span>Tender: <b>${escapeHtml(data.tender_id)}</b> &bull; ${data.bidders_count} Bidders Analyzed</span>
+      <span style="color: ${data.collusion_detected ? '#ef4444' : '#10b981'}; font-weight:700; margin-left: 10px;">
+        ${data.collusion_detected ? '🚨 COLLUSION INTERCEPTED' : '✅ CLEAN BIDDING COHORT'}
+      </span>
+    `;
+
+        if (data.collusion_flags.length === 0) {
+            flagsList.innerHTML = '<div style="color: #10b981; font-size: 0.8rem;">No intra-cohort bid rigging or shared identity linkages detected.</div>';
+        } else {
+            data.collusion_flags.forEach(flag => {
+                const card = document.createElement('div');
+                card.className = 'collusion-flag-card';
+                card.innerHTML = `
+          <div style="font-weight:700; color: #ef4444;">🚨 ${escapeHtml(flag.risk_level)} RISK: ${escapeHtml(flag.shared_attribute)} Overlap</div>
+          <div><b>${escapeHtml(flag.bidder_a)}</b> &harr; <b>${escapeHtml(flag.bidder_b)}</b></div>
+          <div style="color: #cbd5e1; font-size: 0.72rem;">${escapeHtml(flag.attribute_value)}</div>
+          <div style="color: #fca5a5; font-size: 0.7rem; margin-top: 2px;">Violation: ${escapeHtml(flag.statutory_violation)}</div>
+        `;
+                flagsList.appendChild(card);
+            });
+        }
+
+        const graphRes = await fetch('/graph');
+        const graphData = await graphRes.json();
+        renderNetworkGraph(graphData, selectVendor);
+
+        alert(`Successfully ingested & screened ${data.bidders_count} custom tender applicants!`);
+    } catch (err) {
+        alert('Failed to parse and screen cohort CSV');
     }
 }
 
@@ -190,11 +269,11 @@ function startSimulatedStream() {
 
         const row = document.createElement('tr');
         row.innerHTML = `
-      <td>${timeStr}</td>
-      <td><b>${targetEntity.name}</b> (${targetEntity.entity_id})</td>
-      <td>${tenderId}</td>
+      <td>${escapeHtml(timeStr)}</td>
+      <td><b>${escapeHtml(targetEntity.name)}</b> (${escapeHtml(targetEntity.entity_id)})</td>
+      <td>${escapeHtml(tenderId)}</td>
       <td>₹${bidAmount}L</td>
-      <td><span class="band-tag band-${data.risk_band}">${data.risk_band}</span></td>
+      <td><span class="band-tag band-${escapeHtml(data.risk_band)}">${escapeHtml(data.risk_band)}</span></td>
     `;
         tbody.prepend(row);
 
@@ -219,81 +298,8 @@ document.getElementById('searchInput').addEventListener('input', e => {
     renderEntityList(filtered);
 });
 
-// Auto-run dashboard initialization on page load
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initDashboard);
 } else {
     initDashboard();
-}
-
-// --- Custom Cohort Ingestion Controller ---
-function openIngestModal() {
-    document.getElementById('ingestModal').classList.add('open');
-}
-
-function closeIngestModal() {
-    document.getElementById('ingestModal').classList.remove('open');
-}
-
-function downloadSampleCohortCSV() {
-    const link = document.createElement('a');
-    link.href = '/sample-cohort-csv';
-    link.setAttribute('download', 'sample_tender_bids.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-async function handleCohortCsvUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-        const res = await fetch('/ingest-cohort', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await res.json();
-
-        // Show results area inside modal
-        const resultsArea = document.getElementById('cohortResultsArea');
-        const flagsList = document.getElementById('cohortFlagsList');
-        resultsArea.style.display = 'flex';
-        flagsList.innerHTML = '';
-
-        document.getElementById('cohortResultTitle').innerHTML = `
-      <span>Tender: <b>${data.tender_id}</b> &bull; ${data.bidders_count} Bidders Analyzed</span>
-      <span style="color: ${data.collusion_detected ? '#ef4444' : '#10b981'}; font-weight:700; margin-left: 10px;">
-        ${data.collusion_detected ? '🚨 COLLUSION INTERCEPTED' : '✅ CLEAN BIDDING COHORT'}
-      </span>
-    `;
-
-        if (data.collusion_flags.length === 0) {
-            flagsList.innerHTML = '<div style="color: #10b981; font-size: 0.8rem;">No intra-cohort bid rigging or shared identity linkages detected.</div>';
-        } else {
-            data.collusion_flags.forEach(flag => {
-                const card = document.createElement('div');
-                card.className = 'collusion-flag-card';
-                card.innerHTML = `
-          <div style="font-weight:700; color: #ef4444;">🚨 ${flag.risk_level} RISK: ${flag.shared_attribute} Overlap</div>
-          <div><b>${flag.bidder_a}</b> &harr; <b>${flag.bidder_b}</b></div>
-          <div style="color: #cbd5e1; font-size: 0.72rem;">${flag.attribute_value}</div>
-          <div style="color: #fca5a5; font-size: 0.7rem; margin-top: 2px;">Violation: ${flag.statutory_violation}</div>
-        `;
-                flagsList.appendChild(card);
-            });
-        }
-
-        // Refresh graph and entity list in background to display new nodes
-        const graphRes = await fetch('/graph');
-        const graphData = await graphRes.json();
-        renderNetworkGraph(graphData, selectVendor);
-
-        alert(`Successfully ingested & screened ${data.bidders_count} custom tender applicants!`);
-    } catch (err) {
-        alert('Failed to parse and screen cohort CSV');
-    }
 }

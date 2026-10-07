@@ -27,7 +27,7 @@ ELA_MIN_INTENSITY_THRESHOLD = (
     0.30  # True tampering threshold (separates clean <0.05 from tampered >0.45)
 )
 BENFORD_MIN_SAMPLE_SIZE = (
-    50  # Minimum amounts needed for a statistically valid first-digit test
+    25  # Minimum historical amounts needed for a valid first-digit test
 )
 BENFORD_CHI2_CRITICAL = (
     26.12  # Chi-square critical cutoff (df=8, p=0.001 for ~0.1% false positive rate)

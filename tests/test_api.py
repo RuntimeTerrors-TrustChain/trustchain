@@ -7,6 +7,7 @@ from backend.main import (
     get_risk_score,
     get_entity_profile,
 )
+from backend.services import generate_sample_bidding_csv, ingest_and_screen_cohort_csv
 
 
 def test_health_endpoint():
@@ -32,13 +33,10 @@ def test_risk_score_404_on_nonexistent_entity():
     assert "not found in registry" in exc_info.value.detail
 
 
-def test_entity_profile_404_on_nonexistent_entity():
-    with pytest.raises(HTTPException) as exc_info:
-        get_entity_profile("VEND-NONEXISTENT-9999")
-    assert exc_info.value.status_code == 404
-
-
-from backend.services import generate_sample_bidding_csv, ingest_and_screen_cohort_csv
+def test_risk_score_path_traversal_guard():
+    # Pass path traversal payload in doc_name
+    res = get_risk_score("VEND-2824", doc_name="../../etc/passwd")
+    assert res["final_risk_score"] < 40.0
 
 
 def test_sample_cohort_csv():

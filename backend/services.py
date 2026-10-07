@@ -65,9 +65,11 @@ def analyze_vendor_document(
     if entity_id:
         with open(RAW_DATA_DIR / "transactions.json", "r", encoding="utf-8") as f:
             txns = json.load(f)
-        # Benford analysis applies strictly to invoices ISSUED by the vendor (from_entity)
+        # Ingest all bilateral commercial billing associated with this entity
         amounts = [
-            t.get("amount", 0.0) for t in txns if t.get("from_entity") == entity_id
+            t.get("amount", 0.0)
+            for t in txns
+            if t.get("from_entity") == entity_id or t.get("to_entity") == entity_id
         ]
 
     return forensics_engine.analyze_document(
@@ -144,7 +146,7 @@ def get_vis_graph_data() -> Dict[str, Any]:
 
     nodes = []
     for node_id, data in G.nodes(data=True):
-        cluster_id = node_cluster_map.get(node_id)
+        cluster_id = data.get("cohort_cluster") or node_cluster_map.get(node_id)
         if node_id not in _node_risk_cache:
             assessment = get_full_vendor_risk_assessment(node_id)
             _node_risk_cache[node_id] = assessment.get("risk_band", "LOW")
@@ -170,7 +172,7 @@ def get_vis_graph_data() -> Dict[str, Any]:
                 "from": u,
                 "to": v,
                 "label": f"{d.get('shared_field')}: {str(d.get('shared_value'))[:15]}...",
-                "edge_type": "shared_attribute",
+                "edge_type": d.get("edge_type", "shared_attribute"),
             }
         )
 
@@ -629,7 +631,10 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
             "message": "No data found",
         }
 
-    tender_id = rows[0].get("tender_id", "GEM/2026/TENDER")
+    tender_id = rows[0].get("tender_id", "GEM/2026/TENDER").strip()
+    tender_hash = hashlib.sha256(tender_id.encode("utf-8")).hexdigest()[:6].upper()
+    cohort_cluster_tag = f"COHORT-{tender_hash}"
+
     syntax_errors = []
     parsed_bidders = []
 
@@ -655,8 +660,7 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
             else f"HASH_{idx}"
         )
 
-        # Scoped unique entity ID preventing cross-tender collision
-        eid = f"BID-{tender_id.replace('/', '')[-4:]}-{idx:02d}-{name[:4].upper()}"
+        eid = f"BID-{tender_hash}-{idx:02d}-{name[:4].upper()}"
         parsed_bidders.append(
             {
                 "entity_id": eid,
@@ -677,9 +681,11 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
             address=address,
             phone="",
             bank_account=bank_hash,
+            cohort_cluster=None,
         )
 
     collusion_flags = []
+    colluding_eids = set()
     n = len(parsed_bidders)
 
     for i in range(n):
@@ -687,9 +693,12 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
         for j in range(i + 1, n):
             b2 = parsed_bidders[j]
 
+            # 1. Shared Director DIN
             shared_dins = set(b1["dins"]).intersection(set(b2["dins"]))
             if shared_dins:
                 val = list(shared_dins)[0]
+                colluding_eids.add(b1["entity_id"])
+                colluding_eids.add(b2["entity_id"])
                 collusion_flags.append(
                     {
                         "bidder_a": b1["name"],
@@ -705,9 +714,13 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
                     b2["entity_id"],
                     shared_field="director_din",
                     shared_value=val,
+                    edge_type="shared_attribute",
                 )
 
+            # 2. Shared Bank Account Hash
             if b1["bank_hash"] == b2["bank_hash"] and b1["bank_hash"] != "":
+                colluding_eids.add(b1["entity_id"])
+                colluding_eids.add(b2["entity_id"])
                 collusion_flags.append(
                     {
                         "bidder_a": b1["name"],
@@ -723,11 +736,15 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
                     b2["entity_id"],
                     shared_field="bank_account",
                     shared_value="Common Bank",
+                    edge_type="shared_attribute",
                 )
 
+            # 3. Address Similarity (>88%)
             if b1["address"] and b2["address"]:
                 ratio = fuzz.token_sort_ratio(b1["address"], b2["address"])
                 if ratio >= 88.0:
+                    colluding_eids.add(b1["entity_id"])
+                    colluding_eids.add(b2["entity_id"])
                     collusion_flags.append(
                         {
                             "bidder_a": b1["name"],
@@ -743,7 +760,13 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
                         b2["entity_id"],
                         shared_field="registered_address",
                         shared_value=b1["address"][:20],
+                        edge_type="shared_attribute",
                     )
+
+    # Tag colluding nodes to show RED in the visual map
+    for eid in colluding_eids:
+        graph_engine.G.nodes[eid]["cohort_cluster"] = cohort_cluster_tag
+        _node_risk_cache[eid] = "HIGH"
 
     return {
         "tender_id": tender_id,

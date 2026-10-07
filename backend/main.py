@@ -45,6 +45,7 @@ app.add_middleware(
 )
 
 ALLOWED_UPLOAD_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
+MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB limit
 
 
 @app.get("/api/health")
@@ -88,13 +89,23 @@ async def upload_and_analyze_document(
     if suffix not in ALLOWED_UPLOAD_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file type. Allowed: {ALLOWED_UPLOAD_EXTENSIONS}",
+            detail=f"Unsupported file type '{suffix}'. Allowed: {ALLOWED_UPLOAD_EXTENSIONS}",
         )
 
     safe_name = f"upload_{uuid.uuid4().hex[:12]}{suffix}"
     temp_path = DOCS_DIR / safe_name
+
+    # Check size and stream to disk
+    file_size = 0
     with open(temp_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        while chunk := await file.read(1024 * 1024):
+            file_size += len(chunk)
+            if file_size > MAX_FILE_SIZE_BYTES:
+                temp_path.unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=413, detail="File too large. Maximum size is 10 MB."
+                )
+            buffer.write(chunk)
 
     result = analyze_vendor_document(temp_path, entity_id)
     return result
