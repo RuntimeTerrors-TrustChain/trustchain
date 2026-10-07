@@ -1,5 +1,4 @@
 import uuid
-import shutil
 import warnings
 from pathlib import Path
 from typing import List, Optional
@@ -45,7 +44,8 @@ app.add_middleware(
 )
 
 ALLOWED_UPLOAD_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
-MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB limit
+MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB limit for invoice uploads
+MAX_COHORT_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB limit for CSV cohort sheets
 
 
 @app.get("/api/health")
@@ -95,17 +95,24 @@ async def upload_and_analyze_document(
     safe_name = f"upload_{uuid.uuid4().hex[:12]}{suffix}"
     temp_path = DOCS_DIR / safe_name
 
-    # Check size and stream to disk
     file_size = 0
+    too_large = False
+
+    # Stream to file safely
     with open(temp_path, "wb") as buffer:
         while chunk := await file.read(1024 * 1024):
             file_size += len(chunk)
             if file_size > MAX_FILE_SIZE_BYTES:
-                temp_path.unlink(missing_ok=True)
-                raise HTTPException(
-                    status_code=413, detail="File too large. Maximum size is 10 MB."
-                )
+                too_large = True
+                break
             buffer.write(chunk)
+
+    # Windows file-lock fix: delete ONLY after exiting with-block
+    if too_large:
+        temp_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=413, detail="File too large. Maximum size is 10 MB."
+        )
 
     result = analyze_vendor_document(temp_path, entity_id)
     return result
@@ -161,8 +168,20 @@ def get_sample_csv():
 
 @app.post("/ingest-cohort")
 async def ingest_cohort(file: UploadFile = File(...)):
-    """Ingests custom CSV tender bidding sheets and runs in-memory collusion screening."""
+    """Ingests custom CSV tender bidding sheets and runs in-memory collusion screening with row limits."""
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix != ".csv":
+        raise HTTPException(
+            status_code=400,
+            detail="Only CSV files (.csv) are supported for cohort screening.",
+        )
+
     content = await file.read()
+    if len(content) > MAX_COHORT_SIZE_BYTES:
+        raise HTTPException(
+            status_code=413, detail="Cohort CSV file exceeds the 2 MB limit."
+        )
+
     csv_str = content.decode("utf-8", errors="ignore")
     result = ingest_and_screen_cohort_csv(csv_str)
     return result

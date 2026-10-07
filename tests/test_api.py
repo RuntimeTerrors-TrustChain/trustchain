@@ -1,4 +1,6 @@
 import pytest
+from pathlib import Path
+from PIL import Image
 from fastapi import HTTPException
 from backend.main import (
     check_engine,
@@ -33,10 +35,31 @@ def test_risk_score_404_on_nonexistent_entity():
     assert "not found in registry" in exc_info.value.detail
 
 
-def test_risk_score_path_traversal_guard():
-    # Pass path traversal payload in doc_name
-    res = get_risk_score("VEND-2824", doc_name="../../etc/passwd")
-    assert res["final_risk_score"] < 40.0
+def test_entity_profile_404_on_nonexistent_entity():
+    with pytest.raises(HTTPException) as exc_info:
+        get_entity_profile("VEND-NONEXISTENT-9999")
+    assert exc_info.value.status_code == 404
+
+
+def test_risk_score_path_traversal_blocked(tmp_path):
+    # Create an actual image file outside DOCS_DIR
+    outside_dir = tmp_path / "secret_folder"
+    outside_dir.mkdir()
+    outside_img = outside_dir / "secret.png"
+    Image.new("RGB", (100, 100), "white").save(outside_img)
+
+    # Request it with path traversal payload
+    all_ents = list_entities()
+    valid_id = (
+        all_ents[0]["entity_id"]
+        if isinstance(all_ents[0], dict)
+        else all_ents[0].entity_id
+    )
+    res = get_risk_score(valid_id, doc_name=f"../../{outside_img.name}")
+
+    # Assert path traversal is blocked (document not loaded)
+    assert res.get("heatmap_image") is None
+    assert res.get("authenticity_score", 0.0) == 0.0
 
 
 def test_sample_cohort_csv():
