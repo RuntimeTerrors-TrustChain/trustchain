@@ -68,3 +68,20 @@ class GraphEdge(BaseModel):
 class GraphVisualizationResponse(BaseModel):
     nodes: List[GraphNode]
     edges: List[GraphEdge]
+
+# --- Tender Cohort Ingestion Schemas ---
+class CollusionFlag(BaseModel):
+    bidder_a: str
+    bidder_b: str
+    shared_attribute: str
+    attribute_value: str
+    risk_level: str = "HIGH"
+    statutory_violation: str = "Competition Act, 2002 s.3(3)(d) (Collusive Tendering)"
+
+class CohortIngestionResponse(BaseModel):
+    tender_id: str
+    bidders_count: int
+    collusion_detected: bool
+    collusion_flags: List[CollusionFlag] = []
+    syntax_validation_errors: List[str] = []
+    message: str

@@ -562,3 +562,52 @@ main {
     height: 100%;
     border: none;
 }
+
+/* Cohort Ingestion Modal */
+.cohort-modal-content {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+}
+
+.dropzone-box {
+    border: 2px dashed #0284c7;
+    border-radius: 8px;
+    padding: 24px;
+    text-align: center;
+    background: rgba(2, 132, 199, 0.04);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.dropzone-box:hover {
+    background: rgba(2, 132, 199, 0.1);
+}
+
+.collusion-report-box {
+    background: #090d16;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.collusion-flag-card {
+    background: rgba(239, 68, 68, 0.1);
+    border-left: 4px solid var(--danger);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    line-height: 1.4;
+}

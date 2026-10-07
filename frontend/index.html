@@ -29,6 +29,8 @@
                 onchange="handleFileUpload(event)">
             <button class="btn-upload" onclick="document.getElementById('fileUploadInput').click()">📤 Upload &amp; Scan
                 Invoice</button>
+            <button class="btn-upload" style="background: #059669;" onclick="openIngestModal()">📥 Screen Tender Cohort
+                (CSV)</button>
             <div class="badge-tech">Multi-Signal Intelligence</div>
         </div>
     </header>
@@ -178,6 +180,48 @@
             </div>
             <div class="pdf-frame-container">
                 <iframe id="pdfViewerFrame" src=""></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tender Cohort Screening Modal -->
+    <div class="modal-backdrop" id="ingestModal">
+        <div class="cohort-modal-content">
+            <div class="modal-header">
+                <div style="font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
+                    <span>🏛️</span> Ingest &amp; Screen Custom Tender Cohort (CSV)
+                </div>
+                <button class="modal-close" onclick="closeIngestModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; background: #0f172a; padding: 10px 14px; border-radius: 6px; border: 1px solid #334155;">
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.85rem;">Need a sample bid sheet to test?</div>
+                        <div style="font-size: 0.75rem; color: #94a3b8;">Includes 4 competing GeM tender applicants with
+                            planted collusion.</div>
+                    </div>
+                    <button class="btn-upload" onclick="downloadSampleCohortCSV()">⬇️ Download Sample (.csv)</button>
+                </div>
+
+                <input type="file" id="cohortFileInput" accept=".csv" style="display: none;"
+                    onchange="handleCohortCsvUpload(event)">
+                <div class="dropzone-box" onclick="document.getElementById('cohortFileInput').click()">
+                    <div style="font-size: 1.8rem; margin-bottom: 6px;">📂</div>
+                    <div style="font-weight: 600; font-size: 0.9rem; color: #38bdf8;">Click to Upload Custom Vendor Bids
+                        (CSV)</div>
+                    <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">Supports GeM / CPPP standard
+                        tender applicant sheets</div>
+                </div>
+
+                <!-- Collusion Screening Results -->
+                <div id="cohortResultsArea" style="display: none; flex-direction: column; gap: 8px;">
+                    <div style="font-weight: 700; font-size: 0.85rem; color: #f8fafc;" id="cohortResultTitle">Screening
+                        Results</div>
+                    <div class="collusion-report-box" id="cohortFlagsList"></div>
+                </div>
+
             </div>
         </div>
     </div>

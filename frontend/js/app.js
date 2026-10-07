@@ -225,3 +225,75 @@ if (document.readyState === 'loading') {
 } else {
     initDashboard();
 }
+
+// --- Custom Cohort Ingestion Controller ---
+function openIngestModal() {
+    document.getElementById('ingestModal').classList.add('open');
+}
+
+function closeIngestModal() {
+    document.getElementById('ingestModal').classList.remove('open');
+}
+
+function downloadSampleCohortCSV() {
+    const link = document.createElement('a');
+    link.href = '/sample-cohort-csv';
+    link.setAttribute('download', 'sample_tender_bids.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+async function handleCohortCsvUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await fetch('/ingest-cohort', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+
+        // Show results area inside modal
+        const resultsArea = document.getElementById('cohortResultsArea');
+        const flagsList = document.getElementById('cohortFlagsList');
+        resultsArea.style.display = 'flex';
+        flagsList.innerHTML = '';
+
+        document.getElementById('cohortResultTitle').innerHTML = `
+      <span>Tender: <b>${data.tender_id}</b> &bull; ${data.bidders_count} Bidders Analyzed</span>
+      <span style="color: ${data.collusion_detected ? '#ef4444' : '#10b981'}; font-weight:700; margin-left: 10px;">
+        ${data.collusion_detected ? '🚨 COLLUSION INTERCEPTED' : '✅ CLEAN BIDDING COHORT'}
+      </span>
+    `;
+
+        if (data.collusion_flags.length === 0) {
+            flagsList.innerHTML = '<div style="color: #10b981; font-size: 0.8rem;">No intra-cohort bid rigging or shared identity linkages detected.</div>';
+        } else {
+            data.collusion_flags.forEach(flag => {
+                const card = document.createElement('div');
+                card.className = 'collusion-flag-card';
+                card.innerHTML = `
+          <div style="font-weight:700; color: #ef4444;">🚨 ${flag.risk_level} RISK: ${flag.shared_attribute} Overlap</div>
+          <div><b>${flag.bidder_a}</b> &harr; <b>${flag.bidder_b}</b></div>
+          <div style="color: #cbd5e1; font-size: 0.72rem;">${flag.attribute_value}</div>
+          <div style="color: #fca5a5; font-size: 0.7rem; margin-top: 2px;">Violation: ${flag.statutory_violation}</div>
+        `;
+                flagsList.appendChild(card);
+            });
+        }
+
+        // Refresh graph and entity list in background to display new nodes
+        const graphRes = await fetch('/graph');
+        const graphData = await graphRes.json();
+        renderNetworkGraph(graphData, selectVendor);
+
+        alert(`Successfully ingested & screened ${data.bidders_count} custom tender applicants!`);
+    } catch (err) {
+        alert('Failed to parse and screen cohort CSV');
+    }
+}
