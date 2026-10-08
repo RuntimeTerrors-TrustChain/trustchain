@@ -114,7 +114,12 @@ async def upload_and_analyze_document(
             status_code=413, detail="File too large. Maximum size is 10 MB."
         )
 
-    result = analyze_vendor_document(temp_path, entity_id)
+    try:
+        result = analyze_vendor_document(temp_path, entity_id)
+    finally:
+        # Do not keep uploads (or their heatmaps) in the publicly served folder
+        temp_path.unlink(missing_ok=True)
+        (DOCS_DIR / f"{temp_path.stem}_ela_heatmap.png").unlink(missing_ok=True)
     return result
 
 

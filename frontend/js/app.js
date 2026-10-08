@@ -70,7 +70,7 @@ async function selectVendor(entityId) {
 }
 
 function renderDossier(data) {
-    document.getElementById('dossierEntityId').innerText = escapeHtml(data.entity_id);
+    document.getElementById('dossierEntityId').textContent = data.entity_id;
     document.getElementById('finalScore').innerText = data.final_risk_score;
 
     const scoreColor = data.risk_band === 'HIGH' ? '#ef4444' : data.risk_band === 'MEDIUM' ? '#f59e0b' : '#10b981';
@@ -78,7 +78,7 @@ function renderDossier(data) {
 
     const bandEl = document.getElementById('riskBand');
     bandEl.className = `band-tag band-${escapeHtml(data.risk_band)}`;
-    bandEl.innerText = `${escapeHtml(data.risk_band)} RISK`;
+    bandEl.textContent = `${data.risk_band} RISK`;
 
     document.getElementById('baseScore').innerText = `${data.base_score} / 100`;
     document.getElementById('escalationScore').innerText = `+${data.escalation_applied}`;

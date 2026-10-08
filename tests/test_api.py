@@ -1,3 +1,4 @@
+import io
 import pytest
 from pathlib import Path
 from PIL import Image
@@ -10,7 +11,15 @@ from backend.main import (
     get_risk_score, 
     get_entity_profile
 )
-from backend.services import generate_sample_bidding_csv, ingest_and_screen_cohort_csv
+from fastapi.testclient import TestClient
+from backend.main import app, MAX_FILE_SIZE_BYTES
+from backend.services import (
+    generate_sample_bidding_csv,
+    ingest_and_screen_cohort_csv,
+    graph_engine,
+)
+
+client = TestClient(app)
 
 def test_health_endpoint():
     res = check_engine()
@@ -72,3 +81,46 @@ def test_ingest_cohort_row_cap_enforced():
     rows = "\n".join([f"T1,Co{i},CIN{i},Dir{i},DIN{i},Addr{i},07A{i:04d}0000A1Z5,B{i},1000" for i in range(105)])
     res = ingest_and_screen_cohort_csv(header + rows)
     assert "Row limit exceeded" in str(res.get("syntax_validation_errors", []))
+
+
+def _bid_nodes():
+    return [n for n in graph_engine.G.nodes if str(n).startswith("BID-")]
+
+
+def test_upload_rejects_bad_extension():
+    r = client.post("/analyze-document", files={"file": ("evil.exe", b"x")})
+    assert r.status_code == 400
+
+
+def test_upload_rejects_oversize():
+    big = b"0" * (MAX_FILE_SIZE_BYTES + 1)
+    r = client.post("/analyze-document", files={"file": ("big.pdf", big)})
+    assert r.status_code == 413
+
+
+def test_upload_is_deleted_after_analysis():
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 64), "white").save(buf, "PNG")
+    before = set(DOCS_DIR.glob("upload_*"))
+    r = client.post(
+        "/analyze-document", files={"file": ("t.png", buf.getvalue(), "image/png")}
+    )
+    assert r.status_code == 200
+    assert set(DOCS_DIR.glob("upload_*")) == before  # upload and heatmap removed
+
+
+def test_cohort_rejects_non_csv():
+    r = client.post("/ingest-cohort", files={"file": ("x.txt", b"a,b")})
+    assert r.status_code == 400
+
+
+def test_cohort_replaces_previous_upload():
+    ingest_and_screen_cohort_csv(generate_sample_bidding_csv())
+    ingest_and_screen_cohort_csv(generate_sample_bidding_csv())
+    assert len(_bid_nodes()) == 4
+
+
+def test_bad_upload_keeps_previous_cohort():
+    ingest_and_screen_cohort_csv(generate_sample_bidding_csv())
+    ingest_and_screen_cohort_csv("")  # empty upload must not wipe the last good cohort
+    assert len(_bid_nodes()) == 4

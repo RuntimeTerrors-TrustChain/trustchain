@@ -2,6 +2,7 @@ import csv
 import io
 import json
 import hashlib
+import threading
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -26,6 +27,7 @@ graph_engine = GraphIntelligenceEngine()
 forensics_engine = DocumentForensicsEngine()
 _node_risk_cache: Dict[str, str] = {}
 _active_cohort_nodes: List[str] = []
+_cohort_lock = threading.Lock()  # cohort screening edits the shared graph
 
 MAX_COHORT_ROWS = 100
 
@@ -376,15 +378,8 @@ def generate_sample_bidding_csv() -> str:
     ])
     return output.getvalue()
 
-def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
+def _screen_cohort(csv_content: str) -> Dict[str, Any]:
     global _active_cohort_nodes
-    
-    # Session isolation: clean up any previously uploaded cohort nodes
-    for old_eid in _active_cohort_nodes:
-        if graph_engine.G.has_node(old_eid):
-            graph_engine.G.remove_node(old_eid)
-        _node_risk_cache.pop(old_eid, None)
-    _active_cohort_nodes = []
 
     f = io.StringIO(csv_content.strip())
     reader = csv.DictReader(f)
@@ -395,6 +390,14 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
     
     if len(rows) > MAX_COHORT_ROWS:
         return {"tender_id": "UNKNOWN", "bidders_count": len(rows), "collusion_detected": False, "collusion_flags": [], "syntax_validation_errors": [f"Row limit exceeded: CSV has {len(rows)} rows (maximum allowed is {MAX_COHORT_ROWS})."], "message": "Cohort upload rejected"}
+
+    # Session isolation: replace the previous cohort only now that this upload is valid,
+    # so an empty or oversized upload cannot wipe the last good result.
+    for old_eid in _active_cohort_nodes:
+        if graph_engine.G.has_node(old_eid):
+            graph_engine.G.remove_node(old_eid)
+        _node_risk_cache.pop(old_eid, None)
+    _active_cohort_nodes = []
 
     tender_id = rows[0].get("tender_id", "GEM/2026/TENDER").strip()
     tender_hash = hashlib.sha256(tender_id.encode("utf-8")).hexdigest()[:8].upper()
@@ -501,3 +504,9 @@ def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
         "syntax_validation_errors": syntax_errors,
         "message": f"Screened {len(parsed_bidders)} bidders for {tender_id}. {len(collusion_flags)} collusion link(s) intercepted."
     }
+
+
+def ingest_and_screen_cohort_csv(csv_content: str) -> Dict[str, Any]:
+    """Screen an uploaded tender CSV. Serialised with a lock because it edits the shared graph."""
+    with _cohort_lock:
+        return _screen_cohort(csv_content)
