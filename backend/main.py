@@ -1,7 +1,10 @@
+import base64
+import io
 import uuid
 import warnings
 from pathlib import Path
 from typing import List, Optional
+from PIL import Image
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -79,6 +82,19 @@ def list_entity_documents(entity_id: str):
     return get_entity_documents(entity_id)
 
 
+def _image_to_data_uri(path: Path, max_side: int = 1200) -> Optional[str]:
+    """Return an image as an inline data URI (downscaled), or None if it cannot be read."""
+    try:
+        with Image.open(path) as img:
+            img = img.convert("RGB")
+            img.thumbnail((max_side, max_side))
+            buf = io.BytesIO()
+            img.save(buf, "JPEG", quality=85)
+    except Exception:
+        return None
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+
+
 # --- 2. Layer A: Document Forensics ---
 @app.post("/analyze-document")
 async def upload_and_analyze_document(
@@ -114,12 +130,21 @@ async def upload_and_analyze_document(
             status_code=413, detail="File too large. Maximum size is 10 MB."
         )
 
+    heatmap_path = DOCS_DIR / f"{temp_path.stem}_ela_heatmap.png"
     try:
         result = analyze_vendor_document(temp_path, entity_id)
+        # The files are deleted below, so return the images inline instead of
+        # as /docs-media links that would be broken by the time the browser asks.
+        result["original_image"] = (
+            _image_to_data_uri(temp_path) if result.get("original_image") else None
+        )
+        result["heatmap_image"] = (
+            _image_to_data_uri(heatmap_path) if heatmap_path.is_file() else None
+        )
     finally:
         # Do not keep uploads (or their heatmaps) in the publicly served folder
         temp_path.unlink(missing_ok=True)
-        (DOCS_DIR / f"{temp_path.stem}_ela_heatmap.png").unlink(missing_ok=True)
+        heatmap_path.unlink(missing_ok=True)
     return result
 
 

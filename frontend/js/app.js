@@ -99,11 +99,15 @@ function renderDossier(data) {
     });
 }
 
+function showForensicsModal(originalSrc, heatmapSrc) {
+    document.getElementById('originalDocImg').src = originalSrc || '';
+    document.getElementById('heatmapDocImg').src = heatmapSrc || '';
+    document.getElementById('forensicsModal').classList.add('open');
+}
+
 function openForensicsModal() {
     if (currentDossierData && currentDossierData.heatmap_image) {
-        document.getElementById('originalDocImg').src = currentDossierData.original_image || '';
-        document.getElementById('heatmapDocImg').src = currentDossierData.heatmap_image || '';
-        document.getElementById('forensicsModal').classList.add('open');
+        showForensicsModal(currentDossierData.original_image, currentDossierData.heatmap_image);
     }
 }
 
@@ -234,7 +238,8 @@ async function handleCohortCsvUpload(event) {
 }
 
 async function handleFileUpload(event) {
-    const file = event.target.files[0];
+    const input = event.target;
+    const file = input.files[0];
     if (!file) return;
 
     const activeEntityId = currentSelectedEntity || allEntities[0]?.entity_id || 'VEND-1001';
@@ -242,16 +247,30 @@ async function handleFileUpload(event) {
     formData.append('file', file);
 
     try {
-        const res = await fetch(`/analyze-document?entity_id=${activeEntityId}`, {
+        const res = await fetch(`/analyze-document?entity_id=${encodeURIComponent(activeEntityId)}`, {
             method: 'POST',
             body: formData
         });
-        const docResult = await res.json();
+        const docResult = await res.json().catch(() => ({}));
+
+        // Rejected uploads (wrong type, too large, unreadable) carry a "detail" message
+        if (!res.ok) {
+            alert(docResult.detail || `Upload failed (HTTP ${res.status})`);
+            return;
+        }
 
         selectVendor(activeEntityId);
-        alert(`Document "${file.name}" analyzed successfully! Forensic Score: ${docResult.authenticity_score}`);
+        const hotspots = (docResult.ela_hotspots || []).length;
+        alert(`Document "${file.name}" analyzed. Forensic score: ${docResult.authenticity_score} (${hotspots} tampered hotspot(s)).`);
+
+        // Show the evidence straight away (images come back inline because the upload is deleted)
+        if (docResult.heatmap_image) {
+            showForensicsModal(docResult.original_image, docResult.heatmap_image);
+        }
     } catch (err) {
         alert('Failed to upload and analyze document');
+    } finally {
+        input.value = ''; // allow re-uploading the same file
     }
 }
 

@@ -173,3 +173,33 @@ def test_cohort_api_bom_file_keeps_tender_id():
     data = b"\xef\xbb\xbf" + generate_sample_bidding_csv().encode()
     r = client.post("/ingest-cohort", files={"file": ("bom.csv", data)})
     assert r.json()["tender_id"] == _sample_tender_id()
+
+def test_upload_returns_inline_images_not_dead_links():
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 64), "white").save(buf, "JPEG")
+    r = client.post(
+        "/analyze-document", files={"file": ("t.jpg", buf.getvalue(), "image/jpeg")}
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["heatmap_image"].startswith("data:image/")
+    assert body["original_image"].startswith("data:image/")
+    # nothing left behind in the publicly served folder
+    assert not list(DOCS_DIR.glob("upload_*"))
+
+
+def test_upload_of_tampered_sample_reports_hotspots_inline():
+    # Vendor IDs change between generator runs, so find the sample by its document number
+    samples = sorted(DOCS_DIR.glob("DOC-401_*_tampered.jpg"))
+    if not samples:
+        pytest.skip("run the generator first")
+    sample = samples[0]
+    entity_id = sample.name.split("_")[1]
+    r = client.post(
+        f"/analyze-document?entity_id={entity_id}",
+        files={"file": (sample.name, sample.read_bytes(), "image/jpeg")},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["ela_hotspots"]) > 0
+    assert body["heatmap_image"].startswith("data:image/")
