@@ -1,4 +1,3 @@
-
 # 🛡️ TrustChain — Procurement & Vendor Fraud Verification System
 
 > **Document forensics + entity-network intelligence, fused into one explainable risk score.**
@@ -35,7 +34,7 @@ Procurement and vendor fraud (government tenders, corporate vendor onboarding, s
    │          LAYER A          │                            │          LAYER B          │
    │ Document Forensics Engine │                            │ Graph Intelligence Engine │
    ├───────────────────────────┤                            ├───────────────────────────┤
-   │ • Error Level Analysis    │                            │ • Inverted Index Linkage  │
+   │ • Error Level Analysis    │                            │ • Shared-Attribute Graph  │
    │ • OpenCV Contour Bboxes   │                            │ • RapidFuzz String Match  │
    │ • PDF Metadata Inspector  │                            │ • Louvain Modularity (Q)  │
    │ • Benford's Law (Chi-Sq)  │                            │ • Elementary Cycles (DFS) │
@@ -79,7 +78,7 @@ Our synthetic pipeline deterministically generates entities and mapped documents
 | **B** | **Tampered Doc Alone** | Spliced ₹74.2L amount with ELA hotspot, independent entity | **MEDIUM RISK (45.0 - 55.0)** |
 | **C** | **Shell Member Alone** | 4-Node Shell Cartel (Density 1.0, shared director & address), no tampered doc | **MEDIUM RISK (50.0 - 62.5)** |
 | **D** | **Multi-Signal Climax** | Dense shell cartel + Spliced JPEG invoice (intensity 0.8) | **HIGH RISK (80.0 - 100.0)** |
-| **E** | **Circular AML Flow** | 3-Hop circular invoicing + Photoshop PDF metadata discrepancy | **HIGH RISK (75.0 - 90.0)** |
+| **E** | **Circular AML Flow** | 3-Hop circular invoicing + Photoshop PDF metadata discrepancy | **HIGH RISK (90.0 - 100.0)** |
 
 ---
 
@@ -87,15 +86,15 @@ Our synthetic pipeline deterministically generates entities and mapped documents
 
 ### 🔍 Layer A — Document Forensics Engine
 * **Error Level Analysis (ELA):** Exploits JPEG Discrete Cosine Transform (DCT) quantization differences. Spliced amounts or altered dates compress with a different error rate than the untouched background.
-* **OpenCV Automated Bounding Boxes:** Converts amplified difference maps to grayscale, applies an 85th percentile noise cutoff, and uses `cv2.findContours` to draw red bounding boxes around tampered zones.
+* **OpenCV Automated Bounding Boxes:** Converts amplified difference maps to grayscale, applies an adaptive noise cutoff (mean + 2σ of the error map, with a floor of 60), and uses `cv2.findContours` to draw red bounding boxes around tampered zones.
 * **PDF Stream & Metadata Auditing:** Extracts `/Producer`, `/Creator`, `/CreationDate`, and `/ModDate` via `pypdf` to flag Photoshop/Canva usage and post-creation edits.
-* **Benford's Law First-Digit Analysis:** Measures Chi-Square (χ²) deviation against the natural logarithmic curve $P(d) = \log_{10}(1 + 1/d)$ across a vendor's historical invoices to catch fabricated amounts.
+* **Benford's Law First-Digit Analysis:** Runs a first-digit Chi-Square (χ²) test (8 degrees of freedom, flagged when χ² > 26.12, p = 0.001) against the natural logarithmic curve $P(d) = \log_{10}(1 + 1/d)$ across a vendor's historical amounts (minimum 25) to catch fabricated amounts.
 
 ### 🕸️ Layer B — Entity Relationship Graph Engine
-* **Fuzzy Identity Resolution:** Combines inverted index lookup tables with `RapidFuzz` token sorting (>90% similarity threshold) to connect entities across misspelled names and addresses.
+* **Fuzzy Identity Resolution:** Combines exact-match lookup tables (phone, bank account) with pairwise `RapidFuzz` comparison (>=90% similarity threshold) to connect entities across misspelled names and addresses.
 * **Louvain Community Detection:** Greedily optimizes graph modularity ($Q$) to isolate dense sub-networks (Density $\ge 0.5$, Size $\le 8$) representing shell company rings.
-* **Directed Circular Invoicing Detection:** Runs Johnson’s elementary cycle algorithm on directed financial graphs to expose 3-hop and 4-hop fund round-tripping ($A \to B \to C \to A$).
-* **AML Structuring Detection:** Uses rolling 7-day Pandas time-window aggregations to flag vendors issuing $\ge 3$ transactions inside the ₹49,000–₹49,999 regulatory avoidance band.
+* **Directed Circular Invoicing Detection:** Runs Johnson’s elementary cycle algorithm on directed financial graphs to expose 3-hop and 4-hop fund round-tripping ($A \to B \to C \to A$), keeping only loops whose legs carry similar amounts (±10%) within 30 days.
+* **AML Structuring Detection:** Uses a true sliding 7-day window over Pandas data to flag vendors issuing $\ge 3$ transactions inside the ₹47,500–₹49,999 regulatory avoidance band.
 
 ### ⚡ Layer C — Multi-Signal Risk Fusion Engine
 * **Transparent Rule Escalation:** Avoids unexplainable machine learning black boxes. Every risk score is completely traceable to stated rules.
@@ -137,7 +136,8 @@ TP: 13 | FP: 0 | TN: 119 | FN: 0
 =================================================================
 Held-Out Fraud Entities Detected: 4 / 4 (100.0% Generalization Recall)
 =================================================================
-(Note: Evaluated on deterministically generated synthetic procurement data with planted ground truth. Combined multi-signal fusion achieves 100% recall and 100% precision while eliminating single-layer blind spots).
+```
+*(Note: Evaluated on deterministically generated synthetic procurement data with planted ground truth, so these figures show that the planted cases are detected, not accuracy on real procurement data. Re-run `python eval_benchmark.py` after any detector or generator change to refresh them.)*
 
 ---
 
@@ -145,7 +145,7 @@ Held-Out Fraud Entities Detected: 4 / 4 (100.0% Generalization Recall)
 
 * **Synthetic Data Environment:** Real procurement ledgers and bank records are legally confidential. Real-world deployment requires integration with corporate registry APIs (such as India's MCA21) and core banking transaction streams.
 * **Rescanned / Printed Documents:** Error Level Analysis operates on digital JPEG compression gradients. If a forged document is physically printed and scanned on a flatbed scanner, ELA signals degrade; TrustChain mitigates this by pairing ELA with metadata inspection and Benford's Law.
-* **Benford's Law Sample Size:** Reliable first-digit frequency analysis requires $\ge 30–50$ line-item transactions per vendor.
+* **Benford's Law Sample Size:** The check is skipped below 25 amounts per vendor, and reliable first-digit analysis really needs 50 or more. In the generated demo data only two vendors reach 25.
 * **Illustrative Thresholds:** Regulatory limits (e.g. ₹50,000 PMLA threshold) are configurable constants in `config.py`.
 
 ---
@@ -160,7 +160,7 @@ Held-Out Fraud Entities Detected: 4 / 4 (100.0% Generalization Recall)
 | **Backend API** | FastAPI, Uvicorn, Pydantic | Asynchronous REST endpoints, Swagger documentation, data contracts |
 | **Document Forensics** | Pillow, OpenCV (`cv2`), pypdf | JPEG error level re-compression, contour detection, thermal colormaps |
 | **Graph Intelligence** | NetworkX, RapidFuzz | Undirected attribute linkage, Louvain clustering, Johnson cycle search |
-| **Data Science & AML** | NumPy, Pandas | Log-normal pricing math, 7-day rolling window time-series grouping |
+| **Data Science & AML** | NumPy, Pandas | Log-normal pricing math, sliding 7-day window analysis |
 | **Synthetic Generator** | Faker (`en_IN`), ReportLab | Indian registry simulation, injected shell cartels, automated PDF factory |
 | **Frontend UI** | HTML5, CSS Grid, Vanilla JS, vis.js | Zero-build dark mode SPA, Barnes-Hut physics graph, ELA modal viewer |
 | **Testing Suite** | Pytest, FastAPI TestClient | Unit testing for forensics, graph algorithms, fusion, and API endpoints |
@@ -194,8 +194,8 @@ trustchain/
 │   ├── graph/
 │   │   ├── builder.py        # Graph construction & RapidFuzz token matching
 │   │   ├── louvain.py        # Louvain Community Detection & density scoring
-│   │   ├── cycles.py         # Johnson's elementary cycle detection (DiGraph)
-│   │   ├── behavioral.py     # Rolling 7-day AML structuring & threshold evasion
+│   │   ├── cycles.py         # Johnson's elementary cycles, filtered for amount/time consistency
+│   │   ├── behavioral.py     # Sliding 7-day AML structuring & threshold evasion
 │   │   └── engine.py         # Layer B Graph Orchestrator
 │   └── scoring/
 │       └── fusion.py         # Layer C: Transparent Rule-Escalation Fusion Engine
@@ -222,9 +222,9 @@ trustchain/
 └── tests/
     ├── conftest.py           # Pytest path configurations
     ├── test_forensics.py     # Unit tests for ELA, Benford, and metadata
-    ├── test_graph.py         # Unit tests for entity linkage and cycle detection
+    ├── test_graph.py         # Unit tests for entity linkage, cycle detection and structuring
     ├── test_fusion.py        # Unit tests for rule escalations and risk bands
-    └── test_api.py           # API integration tests via FastAPI TestClient
+    └── test_api.py           # API tests: endpoints, upload/path guards, cohort screening
 ```
 
 ---
@@ -234,7 +234,7 @@ trustchain/
 ### Prerequisites
 * **Git** installed.
 * **Python 3.10, 3.11 or 3.12** installed (check with `python --version`).
-* A **GitHub account with access** to this repository. It is private inside the `RuntimeTerrors-TrustChain` organization, so you must be a member or collaborator and signed in to GitHub, otherwise cloning shows a "not found" error.
+* The repository is **public**, so no GitHub account is needed to clone it.
 
 ### 1. Clone the Repository
 ```bash
@@ -273,7 +273,7 @@ python -m generator.run_generator
 ```bash
 pytest -q
 ```
-Expected result: all tests pass (`13 passed`).
+Expected result: all tests pass (`19 passed`).
 
 ### 6. Start the FastAPI Server
 ```bash
@@ -303,10 +303,14 @@ python eval_benchmark.py
 | `/entities` | `GET` | Returns list of all registered vendor entities |
 | `/entities/{entity_id}` | `GET` | Returns full profile of a single vendor |
 | `/entities/{entity_id}/documents` | `GET` | Returns mapped invoices/documents for a specific entity |
-| `/analyze-document` | `POST` | Upload an invoice (PDF/JPEG) to run Layer A forensics (`entity_id` is optional) |
+| `/api/health` | `GET` | Liveness check |
+| `/analyze-document` | `POST` | Upload an invoice (`.pdf`, `.jpg`, `.jpeg`, `.png`; max 10 MB) to run Layer A forensics (`entity_id` is optional) |
 | `/analyze-entity/{id}` | `GET` | Run Layer B graph intelligence on a specific company |
-| `/risk-score/{id}` | `GET` | Returns the complete fused risk score and reason dossier |
+| `/risk-score/{id}` | `GET` | Returns the complete fused risk score and reason dossier (optional `doc_name` selects a file from the server's documents folder) |
+| `/export-dossier/{id}` | `GET` | Returns the two-page PDF audit dossier |
 | `/graph` | `GET` | Returns nodes and edges formatted for `vis-network` |
+| `/sample-cohort-csv` | `GET` | Downloads a sample tender bidding CSV with a planted collusion ring |
+| `/ingest-cohort` | `POST` | Screens an uploaded tender bidding CSV for collusion (`.csv`, max 2 MB, max 100 rows) |
 
 ---
 
