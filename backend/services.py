@@ -30,6 +30,12 @@ _active_cohort_nodes: List[str] = []
 _cohort_lock = threading.Lock()  # cohort screening edits the shared graph
 
 MAX_COHORT_ROWS = 100
+REQUIRED_COHORT_COLUMNS = (
+    "company_name",
+    "director_dins",
+    "bank_account",
+    "registered_address",
+)
 
 def get_all_entities() -> List[Dict[str, Any]]:
     with open(RAW_DATA_DIR / "entities.json", "r", encoding="utf-8") as f:
@@ -378,18 +384,48 @@ def generate_sample_bidding_csv() -> str:
     ])
     return output.getvalue()
 
+def _rejected_cohort(tender_id: str, count: int, errors: List[str], message: str) -> Dict[str, Any]:
+    """Uniform response for an upload that was refused (the previous cohort stays untouched)."""
+    return {
+        "accepted": False,
+        "tender_id": tender_id,
+        "bidders_count": count,
+        "collusion_detected": False,
+        "collusion_flags": [],
+        "syntax_validation_errors": errors,
+        "message": message,
+    }
+
+
 def _screen_cohort(csv_content: str) -> Dict[str, Any]:
     global _active_cohort_nodes
 
-    f = io.StringIO(csv_content.strip())
+    # Excel saves CSVs with a BOM, which would corrupt the first column name.
+    f = io.StringIO(csv_content.lstrip("\ufeff").strip())
     reader = csv.DictReader(f)
-    
+    if reader.fieldnames:
+        reader.fieldnames = [h.strip().lower() for h in reader.fieldnames if h is not None]
+
     rows = list(reader)
     if not rows:
-        return {"tender_id": "UNKNOWN", "bidders_count": 0, "collusion_detected": False, "collusion_flags": [], "syntax_validation_errors": ["Empty CSV file"], "message": "No data found"}
-    
+        return _rejected_cohort("UNKNOWN", 0, ["Empty CSV file"], "No data found")
+
     if len(rows) > MAX_COHORT_ROWS:
-        return {"tender_id": "UNKNOWN", "bidders_count": len(rows), "collusion_detected": False, "collusion_flags": [], "syntax_validation_errors": [f"Row limit exceeded: CSV has {len(rows)} rows (maximum allowed is {MAX_COHORT_ROWS})."], "message": "Cohort upload rejected"}
+        return _rejected_cohort(
+            "UNKNOWN",
+            len(rows),
+            [f"Row limit exceeded: CSV has {len(rows)} rows (maximum allowed is {MAX_COHORT_ROWS})."],
+            "Cohort upload rejected",
+        )
+
+    missing = [c for c in REQUIRED_COHORT_COLUMNS if c not in (reader.fieldnames or [])]
+    if missing:
+        return _rejected_cohort(
+            "UNKNOWN",
+            len(rows),
+            [f"Missing required column(s): {', '.join(missing)}. Download the sample CSV for the expected format."],
+            "Cohort upload rejected",
+        )
 
     # Session isolation: replace the previous cohort only now that this upload is valid,
     # so an empty or oversized upload cannot wipe the last good result.
@@ -497,6 +533,7 @@ def _screen_cohort(csv_content: str) -> Dict[str, Any]:
         _node_risk_cache[eid] = "HIGH"
 
     return {
+        "accepted": True,
         "tender_id": tender_id,
         "bidders_count": len(parsed_bidders),
         "collusion_detected": len(collusion_flags) > 0,

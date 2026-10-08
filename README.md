@@ -147,6 +147,22 @@ Held-Out Fraud Entities Detected: 4 / 4 (100.0% Generalization Recall)
 * **Rescanned / Printed Documents:** Error Level Analysis operates on digital JPEG compression gradients. If a forged document is physically printed and scanned on a flatbed scanner, ELA signals degrade; TrustChain mitigates this by pairing ELA with metadata inspection and Benford's Law.
 * **Benford's Law Sample Size:** The check is skipped below 25 amounts per vendor, and reliable first-digit analysis really needs 50 or more. In the generated demo data only two vendors reach 25.
 * **Illustrative Thresholds:** Regulatory limits (e.g. ₹50,000 PMLA threshold) are configurable constants in `config.py`.
+* **Ring Size Window:** A shell ring is only reported when it has 3 to 8 members (`SHELL_CLUSTER_MAX_SIZE` in `config.py`). Two-company links and rings larger than 8 are not flagged as clusters.
+* **Directors Matched by Name:** In registry mode, directors are matched by exact name only, so a person listed under different spellings can be missed and two different people with the same name can be linked. Cohort mode matches on DIN instead.
+* **Circular Benchmark:** The benchmark data and the detection rules were designed together, so the 100% result shows the detectors find what the generator plants, not how they perform on real procurement data.
+* **Cohort Mode Is a Demo Rule:** In tender-cohort screening, any single shared DIN, bank account hash, or near-identical address marks both bidders HIGH directly. This bypasses the fusion scoring used for registry vendors.
+* **Shared Cohort State:** The uploaded cohort lives in one global in-memory graph. A new upload replaces the previous one for every visitor, and cohort bidders appear in the shared network view.
+
+---
+
+## 🔒 Security Note
+
+TrustChain is a **demo, not a production system**:
+
+* There is **no authentication or authorization** on any endpoint.
+* Invoice uploads are limited to 10 MB (`.pdf`, `.jpg`, `.jpeg`, `.png`) and are deleted after analysis. Cohort CSVs are limited to 2 MB and 100 rows.
+* CORS only allows `http://127.0.0.1:8000` and `http://localhost:8000` (the dashboard is served by the same app). Edit `allow_origins` in `backend/main.py` if you host it elsewhere.
+* Do not upload real confidential documents.
 
 ---
 
@@ -273,7 +289,7 @@ python -m generator.run_generator
 ```bash
 pytest -q
 ```
-Expected result: all tests pass (`19 passed`).
+Expected result: all tests pass (`31 passed`).
 
 ### 6. Start the FastAPI Server
 ```bash
@@ -289,6 +305,8 @@ uvicorn backend.main:app --reload --port 8000
 ## 🧪 Running the Benchmark Evaluation
 
 To independently verify the system across Graph-only, Document-only, Combined Fusion, and Held-out cases:
+
+> Run `python -m generator.run_generator` first. The benchmark reads `data/ground_truth.json`, which is generated together with the data it describes (it is not stored in Git). A ground-truth file from a different generator run will not match the data and gives meaningless results.
 
 ```bash
 python eval_benchmark.py

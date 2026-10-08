@@ -16,3 +16,6 @@ data/raw/*
 .vscode/
 .idea/
 .DS_Store
+
+# Generated together with data/raw; must match it, so it is not tracked
+data/ground_truth.json

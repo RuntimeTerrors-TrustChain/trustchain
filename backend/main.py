@@ -37,7 +37,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://127.0.0.1:8000", "http://localhost:8000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -187,7 +187,7 @@ async def ingest_cohort(file: UploadFile = File(...)):
             status_code=413, detail="Cohort CSV file exceeds the 2 MB limit."
         )
 
-    csv_str = content.decode("utf-8", errors="ignore")
+    csv_str = content.decode("utf-8-sig", errors="ignore")
     result = ingest_and_screen_cohort_csv(csv_str)
     return result
 

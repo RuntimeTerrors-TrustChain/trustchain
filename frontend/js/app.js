@@ -153,7 +153,8 @@ function downloadSampleCohortCSV() {
 }
 
 async function handleCohortCsvUpload(event) {
-    const file = event.target.files[0];
+    const input = event.target;
+    const file = input.files[0];
     if (!file) return;
 
     const formData = new FormData();
@@ -164,22 +165,45 @@ async function handleCohortCsvUpload(event) {
             method: 'POST',
             body: formData
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+
+        // HTTP-level rejections (wrong type, file too large, ...) carry a "detail" message
+        if (!res.ok) {
+            alert(data.detail || `Upload failed (HTTP ${res.status})`);
+            return;
+        }
 
         const resultsArea = document.getElementById('cohortResultsArea');
         const flagsList = document.getElementById('cohortFlagsList');
+        const titleEl = document.getElementById('cohortResultTitle');
         resultsArea.style.display = 'flex';
         flagsList.innerHTML = '';
 
-        document.getElementById('cohortResultTitle').innerHTML = `
-      <span>Tender: <b>${escapeHtml(data.tender_id)}</b> &bull; ${data.bidders_count} Bidders Analyzed</span>
+        const addNote = (text, color) => {
+            const note = document.createElement('div');
+            note.style.color = color;
+            note.style.fontSize = '0.75rem';
+            note.textContent = text;
+            flagsList.appendChild(note);
+        };
+
+        // The server refused the file: never show this as a clean cohort
+        if (data.accepted === false) {
+            titleEl.innerHTML = '<span style="color: #f59e0b; font-weight:700;">⚠️ UPLOAD REJECTED - NOT SCREENED</span>';
+            addNote(data.message || 'Cohort upload rejected', '#f59e0b');
+            (data.syntax_validation_errors || []).forEach(err => addNote(err, '#fca5a5'));
+            return;
+        }
+
+        titleEl.innerHTML = `
+      <span>Tender: <b>${escapeHtml(data.tender_id)}</b> &bull; ${Number(data.bidders_count)} Bidders Analyzed</span>
       <span style="color: ${data.collusion_detected ? '#ef4444' : '#10b981'}; font-weight:700; margin-left: 10px;">
-        ${data.collusion_detected ? '🚨 COLLUSION INTERCEPTED' : '✅ CLEAN BIDDING COHORT'}
+        ${data.collusion_detected ? '🚨 COLLUSION INTERCEPTED' : '✅ NO LINKS FOUND IN THIS COHORT'}
       </span>
     `;
 
         if (data.collusion_flags.length === 0) {
-            flagsList.innerHTML = '<div style="color: #10b981; font-size: 0.8rem;">No intra-cohort bid rigging or shared identity linkages detected.</div>';
+            addNote('No intra-cohort bid rigging or shared identity linkages detected.', '#10b981');
         } else {
             data.collusion_flags.forEach(flag => {
                 const card = document.createElement('div');
@@ -194,13 +218,18 @@ async function handleCohortCsvUpload(event) {
             });
         }
 
+        // Data-quality warnings (e.g. invalid GSTIN) were previously hidden from the user
+        (data.syntax_validation_errors || []).forEach(err => addNote(`Data warning: ${err}`, '#f59e0b'));
+
         const graphRes = await fetch('/graph');
         const graphData = await graphRes.json();
         renderNetworkGraph(graphData, selectVendor);
 
-        alert(`Successfully ingested & screened ${data.bidders_count} custom tender applicants!`);
+        alert(`Screened ${data.bidders_count} tender applicants. ${data.collusion_flags.length} link(s) found.`);
     } catch (err) {
         alert('Failed to parse and screen cohort CSV');
+    } finally {
+        input.value = ''; // allow re-uploading the same file after fixing it
     }
 }
 

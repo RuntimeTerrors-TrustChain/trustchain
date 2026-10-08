@@ -124,3 +124,52 @@ def test_bad_upload_keeps_previous_cohort():
     ingest_and_screen_cohort_csv(generate_sample_bidding_csv())
     ingest_and_screen_cohort_csv("")  # empty upload must not wipe the last good cohort
     assert len(_bid_nodes()) == 4
+
+def _sample_tender_id():
+    import csv
+
+    rows = list(csv.DictReader(io.StringIO(generate_sample_bidding_csv())))
+    return rows[0]["tender_id"]
+
+
+def test_cohort_response_marks_accepted_and_rejected():
+    ok = ingest_and_screen_cohort_csv(generate_sample_bidding_csv())
+    assert ok["accepted"] is True
+    empty = ingest_and_screen_cohort_csv("")
+    assert empty["accepted"] is False
+
+
+def test_cohort_rejects_missing_columns_and_keeps_previous():
+    ingest_and_screen_cohort_csv(generate_sample_bidding_csv())
+    res = ingest_and_screen_cohort_csv("a,b,c\n1,2,3\n4,5,6\n")
+    assert res["accepted"] is False
+    assert "Missing required column" in str(res["syntax_validation_errors"])
+    assert len(_bid_nodes()) == 4  # last good cohort untouched
+
+
+def test_cohort_handles_excel_bom():
+    res = ingest_and_screen_cohort_csv("\ufeff" + generate_sample_bidding_csv())
+    assert res["accepted"] is True
+    assert res["tender_id"] == _sample_tender_id()  # not the silent default
+
+
+def test_cohort_headers_are_case_insensitive():
+    csv_text = generate_sample_bidding_csv()
+    header, rest = csv_text.split("\n", 1)
+    res = ingest_and_screen_cohort_csv(header.upper() + "\n" + rest)
+    assert res["accepted"] is True
+    assert res["collusion_detected"] is True
+
+
+def test_cohort_api_empty_upload_is_flagged_not_clean():
+    r = client.post("/ingest-cohort", files={"file": ("e.csv", b"")})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["accepted"] is False
+    assert body["collusion_detected"] is False
+
+
+def test_cohort_api_bom_file_keeps_tender_id():
+    data = b"\xef\xbb\xbf" + generate_sample_bidding_csv().encode()
+    r = client.post("/ingest-cohort", files={"file": ("bom.csv", data)})
+    assert r.json()["tender_id"] == _sample_tender_id()
